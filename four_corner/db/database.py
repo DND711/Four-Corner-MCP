@@ -287,3 +287,42 @@ class Database:
                         pass
                 res.append(item)
             return res
+
+    def get_user_portfolio(self, user_id: str) -> List[Dict[str, Any]]:
+        """Retrieve all units saved by the user with full project and pricing details."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT 
+                    s.saved_at,
+                    s.notes,
+                    u.*,
+                    p.name as project_name,
+                    p.developer,
+                    p.micro_market,
+                    p.handover_year
+                FROM user_saved_units s
+                JOIN units u ON s.unit_id = u.id
+                JOIN projects p ON u.project_id = p.id
+                WHERE s.user_id = ?
+                ORDER BY s.saved_at DESC
+                """,
+                (user_id,)
+            )
+            return [dict(r) for r in cursor.fetchall()]
+
+    def get_user_inquiries(self, user_id: str) -> List[Dict[str, Any]]:
+        """Retrieve direct developer inquiries submitted by the user."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT * FROM user_inquiries
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+                """,
+                (user_id,)
+            )
+            return [dict(r) for r in cursor.fetchall()]
+

@@ -147,3 +147,61 @@ def test_rest_api_endpoints():
     assert cp.status_code == 200
     assert cp.json()["status"] == "success"
 
+
+def test_oauth_flow():
+    """Test full OAuth 2.0 authorization, token exchange, and buyer tracking."""
+    from starlette.testclient import TestClient
+    from four_corner.server import app
+
+    client = TestClient(app, follow_redirects=False)
+
+    # 1. OAuth Discovery
+    disc = client.get("/.well-known/oauth-authorization-server")
+    assert disc.status_code == 200
+    assert "/oauth/authorize" in disc.json()["authorization_endpoint"]
+
+    # 2. Authorize Page
+    auth_page = client.get("/oauth/authorize?client_id=chatgpt-plugin&redirect_uri=https://chatgpt.com/callback&state=test_state")
+    assert auth_page.status_code == 200
+    assert "Connect Four Corner with ChatGPT" in auth_page.text
+
+    # 3. User submits login/signup
+    post_res = client.post("/oauth/authorize", data={
+        "name": "Sahith Test",
+        "email": "test_buyer@fourcorner.in",
+        "phone": "+91 99999 88888",
+        "micro_market_pref": "Tellapur",
+        "budget_max_cr": "2.0",
+        "client_id": "chatgpt-plugin",
+        "redirect_uri": "https://chatgpt.com/callback",
+        "state": "test_state"
+    })
+    assert post_res.status_code == 302
+    location = post_res.headers["location"]
+    assert "https://chatgpt.com/callback" in location
+    assert "code=fc_code_" in location
+    code = location.split("code=")[1].split("&")[0]
+
+    # 4. Exchange code for access token
+    tok_res = client.post("/oauth/token", data={
+        "grant_type": "authorization_code",
+        "code": code,
+        "client_id": "chatgpt-plugin",
+        "redirect_uri": "https://chatgpt.com/callback"
+    })
+    assert tok_res.status_code == 200
+    tok_data = tok_res.json()
+    assert tok_data["token_type"] == "Bearer"
+    token = tok_data["access_token"]
+
+    # 5. Access UserInfo with Bearer token
+    u_res = client.get("/oauth/userinfo", headers={"Authorization": f"Bearer {token}"})
+    assert u_res.status_code == 200
+    assert u_res.json()["email"] == "test_buyer@fourcorner.in"
+
+    # 6. Admin buyers check
+    adm_res = client.get("/api/v1/admin/buyers")
+    assert adm_res.status_code == 200
+    assert adm_res.json()["total_buyers"] > 0
+
+

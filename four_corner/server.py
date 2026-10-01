@@ -15,6 +15,15 @@ from four_corner.tools.floor_plans import get_architectural_floor_plan
 from four_corner.tools.pricing import get_transparent_pricing_breakdown, compare_properties
 from four_corner.tools.commute import calculate_rush_hour_commute
 from four_corner.tools.rera import verify_rera_filing
+from four_corner.auth import (
+    get_or_create_user,
+    create_authorization_code,
+    exchange_code_for_token,
+    validate_access_token,
+    save_user_favorite,
+    submit_developer_inquiry,
+    render_login_page,
+)
 
 # Initialize MCP Server & Database
 server = MCPServer(SERVER_NAME)
@@ -128,6 +137,242 @@ def compare_units(unit_ids: List[str]) -> Dict[str, Any]:
         unit_ids: List of unit IDs to compare (e.g., ['AKR-T3-1202', 'PRV-T7-1403'])
     """
     return compare_properties(db=db, unit_ids=unit_ids)
+
+
+@server.tool()
+def save_favorite_unit(unit_id: str, buyer_email: str, notes: Optional[str] = None) -> Dict[str, Any]:
+    """Save a residential unit to a buyer's personalized Four Corner portfolio.
+
+    Args:
+        unit_id: Unit identifier (e.g. 'AKR-T3-1202')
+        buyer_email: Buyer email address
+        notes: Optional custom notes
+    """
+    user = get_or_create_user(db=db, email=buyer_email, name=buyer_email.split("@")[0])
+    return save_user_favorite(db=db, user_id=user["id"], unit_id=unit_id, notes=notes)
+
+
+@server.tool()
+def request_developer_callback(
+    project_name: str,
+    buyer_name: str,
+    buyer_phone: str,
+    buyer_email: str,
+    unit_id: Optional[str] = None,
+    preferred_time: Optional[str] = None,
+    notes: Optional[str] = None
+) -> Dict[str, Any]:
+    """Request a direct developer site visit or call with zero broker commission.
+    Captures verified buyer contact details and schedules developer coordination.
+
+    Args:
+        project_name: Target development (e.g. 'My Home Akrida', 'Rajapushpa Provincia')
+        buyer_name: Full name of the home buyer
+        buyer_phone: WhatsApp contact phone number
+        buyer_email: Buyer email address
+        unit_id: Specific unit ID if applicable
+        preferred_time: Preferred callback or site visit window (e.g. 'Saturday morning')
+        notes: Specific buyer requirements
+    """
+    user = get_or_create_user(db=db, email=buyer_email, name=buyer_name, phone=buyer_phone)
+    msg = f"Preferred Time: {preferred_time or 'Anytime'}. Notes: {notes or 'Direct developer inquiry'}"
+    return submit_developer_inquiry(
+        db=db,
+        user_id=user["id"],
+        project_name=project_name,
+        inquiry_type="site_visit_request",
+        unit_id=unit_id,
+        user_message=msg
+    )
+
+
+@server.tool()
+def get_user_portfolio(buyer_email: str) -> Dict[str, Any]:
+    """Retrieve all saved units and inquiries in a buyer's Four Corner portfolio.
+
+    Args:
+        buyer_email: Buyer email address
+    """
+    user = get_or_create_user(db=db, email=buyer_email, name=buyer_email.split("@")[0])
+    saved = db.get_user_portfolio(user_id=user["id"])
+    inquiries = db.get_user_inquiries(user_id=user["id"])
+    return {
+        "status": "success",
+        "buyer": {
+            "name": user["name"],
+            "email": user["email"],
+            "phone": user["phone"],
+            "preferred_market": user["micro_market_pref"]
+        },
+        "saved_units_count": len(saved),
+        "saved_units": saved,
+        "inquiries": inquiries
+    }
+
+
+# ==========================================
+# OAuth 2.0 Server Endpoints (for ChatGPT & AI Authentication)
+# ==========================================
+
+@server.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
+@server.custom_route("/.well-known/openid-configuration", methods=["GET"])
+async def oauth_discovery(request: Request) -> JSONResponse:
+    """RFC 8414 & OpenID Connect discovery metadata.
+    Enables ChatGPT to automatically configure Authorization and Token URLs."""
+    base_url = str(request.base_url).rstrip("/")
+    return JSONResponse({
+        "issuer": base_url,
+        "authorization_endpoint": f"{base_url}/oauth/authorize",
+        "token_endpoint": f"{base_url}/oauth/token",
+        "userinfo_endpoint": f"{base_url}/oauth/userinfo",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic", "none"],
+        "scopes_supported": ["openid", "profile", "email", "real_estate:read", "real_estate:write"],
+        "service_documentation": f"{base_url}/"
+    })
+
+
+@server.custom_route("/oauth/authorize", methods=["GET"])
+async def oauth_authorize_get(request: Request):
+    """Serve the branded Four Corner login and buyer registration page."""
+    from starlette.responses import HTMLResponse
+    qp = request.query_params
+    client_id = qp.get("client_id", "chatgpt-connector")
+    redirect_uri = qp.get("redirect_uri", "")
+    state = qp.get("state", "")
+
+    html = render_login_page(client_id=client_id, redirect_uri=redirect_uri, state=state)
+    return HTMLResponse(html)
+
+
+@server.custom_route("/oauth/authorize", methods=["POST"])
+async def oauth_authorize_post(request: Request):
+    """Process buyer registration, create user record, and redirect with auth code."""
+    from starlette.responses import RedirectResponse
+    form = await request.form()
+    
+    name = str(form.get("name", "")).strip()
+    email = str(form.get("email", "")).strip()
+    phone = str(form.get("phone", "")).strip() or None
+    micro_market = str(form.get("micro_market_pref", "Kokapet")).strip()
+    budget_raw = form.get("budget_max_cr")
+    budget_max_cr = float(budget_raw) if budget_raw else 2.0
+    
+    client_id = str(form.get("client_id", "chatgpt-connector"))
+    redirect_uri = str(form.get("redirect_uri", ""))
+    state = str(form.get("state", ""))
+
+    if not email:
+        return JSONResponse({"error": "email_required", "message": "Email address is required"}, status_code=400)
+
+    # Save user into database
+    user = get_or_create_user(
+        db=db,
+        email=email,
+        name=name or email.split("@")[0],
+        phone=phone,
+        micro_market_pref=micro_market,
+        budget_max_cr=budget_max_cr
+    )
+
+    # Create authorization code
+    code = create_authorization_code(
+        db=db,
+        client_id=client_id,
+        user_id=user["id"],
+        redirect_uri=redirect_uri
+    )
+
+    # Redirect back to ChatGPT
+    delimiter = "&" if "?" in redirect_uri else "?"
+    redirect_target = f"{redirect_uri}{delimiter}code={code}"
+    if state:
+        redirect_target += f"&state={state}"
+
+    return RedirectResponse(url=redirect_target, status_code=302)
+
+
+@server.custom_route("/oauth/token", methods=["POST"])
+async def oauth_token(request: Request) -> JSONResponse:
+    """OAuth 2.0 token endpoint: exchange authorization code for access token."""
+    code = None
+    client_id = None
+    client_secret = None
+
+    # Try parsing form data or json
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            code = body.get("code")
+            client_id = body.get("client_id")
+            client_secret = body.get("client_secret")
+        except Exception:
+            pass
+    else:
+        form = await request.form()
+        code = form.get("code")
+        client_id = form.get("client_id")
+        client_secret = form.get("client_secret")
+
+    if not code:
+        return JSONResponse({"error": "invalid_request", "error_description": "Missing code parameter"}, status_code=400)
+
+    token_payload, err = exchange_code_for_token(
+        db=db,
+        code=str(code),
+        client_id=str(client_id) if client_id else None,
+        client_secret=str(client_secret) if client_secret else None
+    )
+
+    if err or not token_payload:
+        return JSONResponse({"error": "invalid_grant", "error_description": err or "Failed to exchange code"}, status_code=400)
+
+    return JSONResponse(token_payload)
+
+
+@server.custom_route("/oauth/userinfo", methods=["GET"])
+async def oauth_userinfo(request: Request) -> JSONResponse:
+    """Return profile data of the currently authenticated buyer."""
+    auth_header = request.headers.get("authorization", "")
+    user = validate_access_token(db=db, token=auth_header)
+    if not user:
+        return JSONResponse({"error": "unauthorized", "message": "Invalid or expired access token"}, status_code=401)
+    
+    return JSONResponse({
+        "sub": user["id"],
+        "name": user["name"],
+        "email": user["email"],
+        "phone": user["phone"],
+        "micro_market_pref": user["micro_market_pref"],
+        "budget_max_cr": user["budget_max_cr"]
+    })
+
+
+@server.custom_route("/api/v1/admin/buyers", methods=["GET"])
+async def admin_buyers(request: Request) -> JSONResponse:
+    """Inspect all registered buyer leads and inquiries captured via ChatGPT & OAuth."""
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users ORDER BY created_at DESC")
+        buyers = [dict(r) for r in cursor.fetchall()]
+        
+        cursor.execute("SELECT * FROM user_inquiries ORDER BY created_at DESC")
+        inquiries = [dict(r) for r in cursor.fetchall()]
+
+        cursor.execute("SELECT * FROM user_saved_units ORDER BY saved_at DESC")
+        saved = [dict(r) for r in cursor.fetchall()]
+
+    return JSONResponse({
+        "total_buyers": len(buyers),
+        "buyers": buyers,
+        "total_inquiries": len(inquiries),
+        "inquiries": inquiries,
+        "total_saved_units": len(saved),
+        "saved_units": saved
+    })
+
 
 
 # ==========================================

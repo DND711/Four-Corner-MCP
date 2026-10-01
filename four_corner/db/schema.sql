@@ -75,9 +75,83 @@ CREATE TABLE IF NOT EXISTS commute_corridors (
     congestion_warning TEXT
 );
 
+-- ==========================================
+-- User Accounts, OAuth 2.0 & Buyer Data
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT,
+    micro_market_pref TEXT,
+    budget_max_cr REAL,
+    bhk_pref REAL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS oauth_clients (
+    client_id TEXT PRIMARY KEY,
+    client_secret TEXT NOT NULL,
+    client_name TEXT NOT NULL,
+    redirect_uris TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS oauth_codes (
+    code TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    redirect_uri TEXT NOT NULL,
+    scope TEXT,
+    expires_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS oauth_tokens (
+    token TEXT PRIMARY KEY,
+    refresh_token TEXT UNIQUE,
+    client_id TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    scope TEXT,
+    expires_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_saved_units (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    unit_id TEXT NOT NULL REFERENCES units(id),
+    notes TEXT,
+    saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, unit_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_inquiries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    unit_id TEXT REFERENCES units(id),
+    project_name TEXT NOT NULL,
+    inquiry_type TEXT NOT NULL,
+    user_message TEXT,
+    status TEXT NOT NULL DEFAULT 'new',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT REFERENCES users(id),
+    tool_name TEXT NOT NULL,
+    query_summary TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_units_project ON units(project_id);
 CREATE INDEX IF NOT EXISTS idx_units_price ON units(total_price_cr);
 CREATE INDEX IF NOT EXISTS idx_units_bhk ON units(bhk);
 CREATE INDEX IF NOT EXISTS idx_units_carpet ON units(carpet_area_sqft);
 CREATE INDEX IF NOT EXISTS idx_projects_market ON projects(micro_market);
 CREATE INDEX IF NOT EXISTS idx_commute ON commute_corridors(project_id, destination_hub);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_oauth_tokens ON oauth_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_oauth_codes ON oauth_codes(code);
+
