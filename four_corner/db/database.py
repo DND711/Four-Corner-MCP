@@ -34,8 +34,11 @@ class PostgresCursorWrapper:
         if q.upper().startswith("PRAGMA"):
             return self
 
-        # Adapt placeholders from ? to %s
-        adapted_q = q.replace("?", "%s")
+        # Adapt placeholders from ? to %s, escaping literal % if params are provided
+        if params is not None and len(params) > 0:
+            adapted_q = q.replace("%", "%%").replace("?", "%s")
+        else:
+            adapted_q = q.replace("?", "%s")
 
         # Adapt SQLite INSERT OR REPLACE for PostgreSQL
         if "INSERT OR REPLACE INTO projects" in adapted_q:
@@ -157,15 +160,33 @@ class PostgresConnectionWrapper:
         self.close()
 
 
+def sanitize_db_url(url: Optional[str]) -> Optional[str]:
+    """Sanitize and URL-encode credentials in database connection URI."""
+    if not url:
+        return url
+    url = url.strip()
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    if "://" in url and "@" in url:
+        scheme, rest = url.split("://", 1)
+        # Split on the LAST @ to isolate host_part from user:password
+        auth_part, host_part = rest.rsplit("@", 1)
+        if ":" in auth_part:
+            user, raw_pw = auth_part.split(":", 1)
+            import urllib.parse
+            unquoted = urllib.parse.unquote(raw_pw)
+            encoded_pw = urllib.parse.quote(unquoted, safe="")
+            return f"{scheme}://{user}:{encoded_pw}@{host_part}"
+    return url
+
+
 class Database:
     def __init__(self, db_path: Optional[Path] = None, database_url: Optional[str] = None):
-        self.database_url = database_url or os.getenv("DATABASE_URL")
+        raw_url = database_url or os.getenv("DATABASE_URL")
+        self.database_url = sanitize_db_url(raw_url)
         self.is_postgres = False
 
         if self.database_url:
-            # Normalize url if postgres:// is given by Render/Supabase
-            if self.database_url.startswith("postgres://"):
-                self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)
             if PSYCOPG2_AVAILABLE:
                 self.is_postgres = True
             else:
@@ -189,20 +210,20 @@ class Database:
 
     def init_database(self) -> None:
         if self.is_postgres:
-            schema_file = DB_DIR / "schema_supabase.sql"
             with self.get_connection() as conn:
-                with open(schema_file, "r", encoding="utf-8") as f:
-                    sql_script = f.read()
-                # Run statements
                 cur = conn.cursor()
-                cur.execute(sql_script)
-                conn.commit()
-
-                # Seed data if table is currently empty
-                cur.execute("SELECT COUNT(*) as count FROM projects")
+                cur.execute(
+                    "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'projects') as exists"
+                )
                 row = cur.fetchone()
-                count = row.get("count", 0) if row else 0
-                if count == 0:
+                table_exists = row.get("exists", False) if row else False
+
+                if not table_exists:
+                    schema_file = DB_DIR / "schema_supabase.sql"
+                    with open(schema_file, "r", encoding="utf-8") as f:
+                        sql_script = f.read()
+                    cur.execute(sql_script)
+                    conn.commit()
                     self.seed_database(conn)
         else:
             schema_file = DB_DIR / "schema.sql"
@@ -345,7 +366,7 @@ class Database:
                 u.is_corner_unit,
                 u.super_built_up_sqft,
                 u.carpet_area_sqft,
-                ROUND((CAST(u.carpet_area_sqft AS REAL) / u.super_built_up_sqft) * 100.0, 1) as usable_efficiency_pct,
+                ROUND(CAST((CAST(u.carpet_area_sqft AS REAL) / u.super_built_up_sqft) * 100.0 AS NUMERIC), 1) as usable_efficiency_pct,
                 u.balcony_facing,
                 u.has_morning_sunlight,
                 u.total_price_cr,
@@ -405,7 +426,7 @@ class Database:
                     p.rera_id,
                     p.registered_handover_date,
                     p.status as construction_status,
-                    ROUND((CAST(u.carpet_area_sqft AS REAL) / u.super_built_up_sqft) * 100.0, 1) as usable_efficiency_pct
+                    ROUND(CAST((CAST(u.carpet_area_sqft AS REAL) / u.super_built_up_sqft) * 100.0 AS NUMERIC), 1) as usable_efficiency_pct
                 FROM units u
                 JOIN projects p ON u.project_id = p.id
                 WHERE LOWER(u.id) = LOWER(?)
