@@ -429,6 +429,7 @@ async def admin_buyers(request: Request) -> JSONResponse:
         saved = [dict(r) for r in cursor.fetchall()]
 
     return JSONResponse({
+        "database_engine": "postgresql" if db.is_postgres else "sqlite",
         "total_buyers": len(buyers),
         "buyers": buyers,
         "total_inquiries": len(inquiries),
@@ -450,6 +451,7 @@ async def health_check(request: Request) -> JSONResponse:
         "status": "healthy",
         "service": SERVER_NAME,
         "version": "1.0.0",
+        "database_engine": "postgresql" if db.is_postgres else "sqlite",
         "mcp_sse_endpoint": "/sse",
         "openapi_schema": "/openapi.json"
     })
