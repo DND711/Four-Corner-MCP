@@ -23,6 +23,19 @@ Traditional property portals are cluttered with fabricated rates, inflated super
 
 ---
 
+## 📚 Complete Project Documentation Hub
+
+| Document | Purpose & Contents |
+| :--- | :--- |
+| ⚡ **[GOTCHA.md](GOTCHA.md)** | Production gotchas: Starlette SSE streaming bug, Docker ephemeral storage, AI discrepancy triggers, and PKCE OAuth rules. |
+| 📋 **[ROADMAP_AND_PRD.md](ROADMAP_AND_PRD.md)** | Full Product Requirements Document (PRD), Phased roadmap (PostgreSQL migration, TS-RERA scraper, interactive SVGs, builder CRM webhooks). |
+| 🛠️ **[API_AND_TOOL_SPEC.md](API_AND_TOOL_SPEC.md)** | Comprehensive specification for all 7 MCP tools, REST endpoints, OpenAPI schemas, and OAuth 2.0 PKCE. |
+| 📊 **[REAL_WORLD_TESTING_REPORT.md](REAL_WORLD_TESTING_REPORT.md)** | Audit of 9 Hyderabad gated communities, < ₹1.2 Cr inventory analysis, ADP commute matrix, and test suite logs. |
+| 🤖 **[GPT_STORE_GUIDE.md](GPT_STORE_GUIDE.md)** | Step-by-step setup guide for OpenAI Plugin directory & Custom GPT actions. |
+| 🔮 **[CLAUDE_DIRECTORY_GUIDE.md](CLAUDE_DIRECTORY_GUIDE.md)** | Desktop and remote SSE connection guide for Anthropic Claude. |
+
+---
+
 ## MCP Tools Reference
 
 The server exposes 6 high-precision tools:
