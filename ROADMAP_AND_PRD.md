@@ -7,7 +7,7 @@
 
 ---
 
-## 🎯 1. Executive Summary & Vision
+## 1. Executive Summary and Vision
 
 ### The Problem
 The Indian residential real estate market (particularly high-growth tech hubs like Hyderabad, Bengaluru, and Pune) suffers from severe systemic information asymmetry:
@@ -18,14 +18,14 @@ The Indian residential real estate market (particularly high-growth tech hubs li
 
 ### The Solution
 **Four Corner** is an open, protocol-first property intelligence platform built on the **Model Context Protocol (MCP)** and **OpenAPI 3.1.0**. It interfaces directly with conversational AI agents (ChatGPT, Claude, Cursor) to give buyers:
-- Unadulterated direct-developer cost sheets with ₹0 broker markup.
+- Itemized direct-developer cost sheets with ₹0 broker markup.
 - True architectural indoor carpet area calculations and usability efficiency percentages.
 - Official Telangana State RERA (TS-RERA) registration and dedicated escrow compliance verification.
 - Empirical morning and evening rush-hour commute metrics tailored to specific corporate campuses (e.g., ADP Gachibowli, Waverock, Cyber Towers).
 
 ---
 
-## 🏗️ 2. Architectural Blueprint
+## 2. Architectural Blueprint
 
 ```mermaid
 flowchart TD
@@ -75,7 +75,7 @@ flowchart TD
 
 ---
 
-## 📋 3. Phased Implementation Roadmap
+## 3. Phased Implementation Roadmap
 
 ### Phase 1: Persistence & Production Reliability (Target: Q4 2026)
 * **Goal:** Eliminate data loss caused by ephemeral Docker container rebuilds on Render.
@@ -138,7 +138,7 @@ flowchart TD
 
 ---
 
-## 🔒 4. Compliance, Security & Privacy Standards
+## 4. Compliance, Security, and Privacy Standards
 
 1. **Mandatory Phone Verification:** Buyer telephone numbers are validated against standard E.164 formats (`+91 XXXXX XXXXX`) during OAuth signup.
 2. **Zero Broker Data Reselling:** User contact information is strictly shared only with official developer sales teams upon explicit inquiry submission.

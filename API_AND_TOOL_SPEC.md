@@ -6,7 +6,7 @@
 
 ---
 
-## 🛠️ 1. MCP Tools Reference (Claude, Cursor & ChatGPT Plugins)
+## 1. MCP Tools Reference (Claude, Cursor & ChatGPT Plugins)
 
 When an AI client connects via SSE (`/sse`), the following 7 tools are registered:
 
@@ -185,7 +185,7 @@ When an AI client connects via SSE (`/sse`), the following 7 tools are registere
 
 ---
 
-## 🌐 2. REST API Endpoints Reference
+## 2. REST API Endpoints Reference
 
 All MCP tools are mirrored as standard REST GET endpoints for ChatGPT Actions, web apps, and mobile integrations:
 
@@ -204,7 +204,7 @@ All MCP tools are mirrored as standard REST GET endpoints for ChatGPT Actions, w
 
 ---
 
-## 🔐 3. OAuth 2.0 PKCE Specification
+## 3. OAuth 2.0 PKCE Specification
 
 Four Corner implements RFC 7636 PKCE S256 for secure buyer authentication:
 

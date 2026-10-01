@@ -7,7 +7,7 @@
 
 ---
 
-## 📊 1. Verified Residential Projects Database Audit
+## 1. Verified Residential Projects Database Audit
 
 The platform currently models **9 high-fidelity residential gated communities** across Hyderabad's western IT corridor, authenticated against official Telangana State RERA filings:
 
@@ -25,7 +25,7 @@ The platform currently models **9 high-fidelity residential gated communities** 
 
 ---
 
-## 💰 2. Verified Developer Inventory Under ₹1.2 Cr
+## 2. Verified Developer Inventory Under 1.2 Cr
 
 A primary design requirement was ensuring authentic, verified direct-developer inventory under a strict **₹1.20 Cr** out-the-door price ceiling for professionals working in Gachibowli / Financial District:
 
@@ -46,7 +46,7 @@ A primary design requirement was ensuring authentic, verified direct-developer i
 
 ---
 
-## 🚗 3. Commute Benchmark Matrix (Destination: ADP Gachibowli)
+## 3. Commute Benchmark Matrix (Destination: ADP Gachibowli)
 
 Every project was benchmarked for realistic peak rush-hour transit times to **ADP Gachibowli (Nanakramguda)**:
 
@@ -62,7 +62,7 @@ ADP Gachibowli (Nanakramguda)
 
 ---
 
-## 🧪 4. Automated Test Suite Results
+## 4. Automated Test Suite Results
 
 All 11 unit and integration test suites pass locally and against remote endpoints:
 
@@ -90,8 +90,8 @@ tests/test_server.py::test_oauth_flow PASSED                             [100%]
 
 ---
 
-## 📌 5. Production Audit Conclusion
+## 5. Production Audit Conclusion
 
 1. **Integrity Verified:** Real architectural carpet dimensions accurately expose the ~30% super built-up loading factor common in Hyderabad high-rises.
-2. **True Cost Transparency:** Out-the-door price calculations correctly bundle GST, 2 covered car parking slots, amenities, and infrastructure levies into a single unadulterated figure.
+2. **True Cost Transparency:** Out-the-door price calculations correctly bundle GST, 2 covered car parking slots, amenities, and infrastructure levies into a single verified figure.
 3. **Conversational AI Usability:** Seamless tool routing verified with ChatGPT reasoning models without leaking raw JSON into user chat text.

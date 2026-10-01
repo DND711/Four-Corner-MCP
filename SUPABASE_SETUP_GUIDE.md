@@ -6,13 +6,13 @@
 
 ---
 
-## 🚀 Step 1: Create Your Supabase Project (1 Minute)
+## Step 1: Create Your Supabase Project (1 Minute)
 
 1. Open [https://supabase.com](https://supabase.com) and click **"Start your project"** (Sign in with GitHub or email).
 2. Click **"New Project"**.
 3. Fill in the project details:
    - **Name:** `four-corner-mcp` (or any name you prefer)
-   - **Database Password:** Enter a secure password (⚠️ **Save this password!** You will need it in Step 3).
+   - **Database Password:** Enter a secure password (**Note: Save this password securely.** You will need it in Step 3).
    - **Region:** Select **`South Asia (Mumbai) - ap-south-1`** (closest to Hyderabad and fastest for Render).
    - **Pricing Plan:** **Free tier** ($0/month).
 4. Click **"Create new project"**.
@@ -20,7 +20,7 @@
 
 ---
 
-## 🗄️ Step 2: Create the Database Tables in Supabase (1 Minute)
+## Step 2: Create the Database Tables in Supabase (1 Minute)
 
 1. In your Supabase project dashboard, click on the **SQL Editor** icon in the left sidebar (looks like a terminal `>_`).
 2. Click **"New query"**.
@@ -186,7 +186,7 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 ---
 
-## 🔗 Step 3: Copy Your Supabase Connection String (30 Seconds)
+## Step 3: Copy Your Supabase Connection String (30 Seconds)
 
 1. In your Supabase project dashboard, click the **Settings** gear icon (bottom-left) $\rightarrow$ click **Database**.
 2. Scroll down to **Connection parameters** / **Connection string**.
@@ -200,7 +200,7 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 ---
 
-## 🚀 Step 4: Add `DATABASE_URL` in Render (1 Minute)
+## Step 4: Add `DATABASE_URL` in Render (1 Minute)
 
 1. Open your [Render Dashboard](https://dashboard.render.com).
 2. Click on your **`four-corner-mcp`** web service.
@@ -216,7 +216,7 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 ---
 
-## 👁️ Step 5: How to View Leads & Registered Buyers
+## Step 5: How to View Leads & Registered Buyers
 
 Supabase gives you a built-in visual spreadsheet interface:
 1. In your Supabase dashboard, click the **Table Editor** icon (table grid icon in left sidebar).

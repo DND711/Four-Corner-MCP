@@ -7,11 +7,11 @@
 
 ---
 
-## ⚡ 1. Critical Gotchas & Hard-Learned Lessons
+## 1. Critical Technical Considerations & Hard-Learned Lessons
 
 This section documents critical production failure modes, architectural nuances, and integration traps discovered while deploying Four Corner to Render and connecting it to ChatGPT and Claude.
 
-### 🔴 Gotcha 1: Starlette's `BaseHTTPMiddleware` Breaks Streaming (SSE)
+### Consideration 1: Starlette's `BaseHTTPMiddleware` Breaks Streaming (SSE)
 * **The Symptom:**
   ```text
   AssertionError: Unexpected message: {'type': 'http.response.start', 'status': 200, ...}
@@ -25,7 +25,7 @@ This section documents critical production failure modes, architectural nuances,
 
 ---
 
-### 🔴 Gotcha 2: Ephemeral Filesystem on Docker / Render Deployments
+### Consideration 2: Ephemeral Filesystem on Docker / Render Deployments
 * **The Symptom:**
   Running `curl https://<app>.onrender.com/api/v1/admin/buyers` returns `total_buyers: 0` immediately following a git push or container rebuild, even though users previously registered.
 * **The Root Cause:**
@@ -36,7 +36,7 @@ This section documents critical production failure modes, architectural nuances,
 
 ---
 
-### 🔴 Gotcha 3: The "Discrepancy Trigger" in AI Models (Web Search Fallback)
+### Consideration 3: The "Discrepancy Trigger" in AI Models (Web Search Fallback)
 * **The Symptom:**
   When asked a property or commute question, ChatGPT ignored the MCP tool, performed a public web search, found contradictory marketing blogs, and told the user: *"Four Corner's listing needs verification... RERA ID not found"*.
 * **The Root Cause:**
@@ -48,7 +48,7 @@ This section documents critical production failure modes, architectural nuances,
 
 ---
 
-### 🔴 Gotcha 4: Strict OAuth 2.0 PKCE S256 Enforcement by OpenAI
+### Consideration 4: Strict OAuth 2.0 PKCE S256 Enforcement by OpenAI
 * **The Symptom:**
   ChatGPT connector failed registration with:
   `OAuth authorization server metadata must advertise PKCE support with code_challenge_methods_supported containing S256`.
@@ -59,7 +59,7 @@ This section documents critical production failure modes, architectural nuances,
 
 ---
 
-### 🔴 Gotcha 5: Reasoning Models Leaking Raw JSON in Chat Output
+### Consideration 5: Reasoning Models Leaking Raw JSON in Chat Output
 * **The Symptom:**
   ChatGPT printed a raw code block `{"unit_id": "CND-T5-1602"}` in plain text directly above the tool response widget.
 * **The Root Cause:**
@@ -70,7 +70,7 @@ This section documents critical production failure modes, architectural nuances,
 
 ---
 
-### 🔴 Gotcha 6: Accordion Tool UI in ChatGPT
+### Consideration 6: Accordion Tool UI in ChatGPT
 * **The Nuance:**
   Users often mistake the `{=} Received app response ^` widget for unformatted output.
 * **The Reality:**
@@ -78,25 +78,25 @@ This section documents critical production failure modes, architectural nuances,
 
 ---
 
-## 🧪 2. What We Have Built & Tested Till Now (Real-World Milestones)
+## 2. Tested Milestones and Production Status (Real-World Milestones)
 
 | Feature | Status | Description |
 | :--- | :---: | :--- |
-| **Dual-Protocol Server** | ✅ Live | Serves both Claude/Cursor MCP (`/sse`) and ChatGPT Actions (`/openapi.json`). |
-| **Render Cloud Deployment** | ✅ Live | Dockerized Python 3.11 environment with live auto-deploy on git push. |
-| **Real-Time Unbuffered Logging** | ✅ Live | `PYTHONUNBUFFERED=1` enables immediate log streaming to Render CLI/dashboard. |
-| **OAuth 2.0 PKCE Auth Engine** | ✅ Live | Mandatory phone number validation, auth codes, and Bearer token issuance. |
-| **Lead Capture Admin API** | ✅ Live | `GET /api/v1/admin/buyers` lets administrators monitor registered buyers & inquiries. |
-| **Verified Inventory Under ₹1.2 Cr** | ✅ Live | Authentic 2, 2.5, and 3-BHK inventory across Financial District, Tellapur, Gachibowli, Nallagandla, Narsingi, and Kollur. |
-| **ADP Gachibowli Commute Engine**| ✅ Live | Rush-hour morning (9:00–10:30 AM) & evening (6:30–8:30 PM) road transit benchmarks to ADP office in Nanakramguda. |
-| **Architectural Floor Plan Math** | ✅ Live | Room-by-room carpet dimensions, true usable efficiency, and balcony sunlight metrics. |
-| **Itemized Builder Cost Sheets** | ✅ Live | Base cost + floor rise + corner premium + parking + clubhouse + infra + GST calculation with ₹0 broker markup. |
-| **Official TS-RERA Verification** | ✅ Live | Clean-chit verification, escrow compliance check, and litigation history audit. |
-| **Automated Test Suite** | ✅ 11/11 Passed | Full unit & integration testing via `pytest -v`. |
+| **Dual-Protocol Server** | Active | Serves both Claude/Cursor MCP (`/sse`) and ChatGPT Actions (`/openapi.json`). |
+| **Render Cloud Deployment** | Active | Dockerized Python 3.11 environment with live auto-deploy on git push. |
+| **Real-Time Unbuffered Logging** | Active | `PYTHONUNBUFFERED=1` enables immediate log streaming to Render CLI/dashboard. |
+| **OAuth 2.0 PKCE Auth Engine** | Active | Mandatory phone number validation, auth codes, and Bearer token issuance. |
+| **Lead Capture Admin API** | Active | `GET /api/v1/admin/buyers` lets administrators monitor registered buyers & inquiries. |
+| **Verified Inventory Under ₹1.2 Cr** | Active | Authentic 2, 2.5, and 3-BHK inventory across Financial District, Tellapur, Gachibowli, Nallagandla, Narsingi, and Kollur. |
+| **ADP Gachibowli Commute Engine**| Active | Rush-hour morning (9:00–10:30 AM) & evening (6:30–8:30 PM) road transit benchmarks to ADP office in Nanakramguda. |
+| **Architectural Floor Plan Math** | Active | Room-by-room carpet dimensions, true usable efficiency, and balcony sunlight metrics. |
+| **Itemized Builder Cost Sheets** | Active | Base cost + floor rise + corner premium + parking + clubhouse + infra + GST calculation with ₹0 broker markup. |
+| **Official TS-RERA Verification** | Active | Clean-chit verification, escrow compliance check, and litigation history audit. |
+| **Automated Test Suite** | 11/11 Passed | Full unit & integration testing via `pytest -v`. |
 
 ---
 
-## 🚀 3. Further Developments & Pending Features Roadmap
+## 3. Future Development Roadmap
 
 ### Phase 1: Database & Production Persistence (Immediate Next Step)
 - [ ] **Migrate SQLite to Managed PostgreSQL:**

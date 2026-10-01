@@ -116,9 +116,9 @@ def get_floor_plan(unit_id: str) -> Dict[str, Any]:
 
 @server.tool()
 def get_pricing_breakdown(unit_id: str) -> Dict[str, Any]:
-    """Generate an unadulterated builder cost sheet for a specific unit.
-    Reveals all hidden components: base rate, floor rise, corner premium, parking, clubhouse, and GST.
-    Guarantees 100% direct developer pricing with zero broker commission.
+    """Generate an itemized builder cost sheet for a specific unit.
+    Reveals all cost components: base rate, floor rise, corner premium, parking, clubhouse, and GST.
+    Provides direct developer pricing without broker markups.
 
     Args:
         unit_id: Unique unit identifier (e.g., 'AKR-T3-1202', 'PRV-T7-1403')
@@ -310,7 +310,7 @@ async def oauth_authorize_post(request: Request):
     if not phone:
         return JSONResponse({"error": "phone_required", "message": "Phone number is required"}, status_code=400)
 
-    logger.info(f"✅ Buyer Registered: {name} | Email: {email} | Phone: {phone}")
+    logger.info(f"Buyer Registered: {name} | Email: {email} | Phone: {phone}")
 
     # Save user into database
     user = get_or_create_user(
@@ -596,12 +596,12 @@ class ASGIRequestLogger:
             query = scope.get("query_string", b"").decode("utf-8", errors="ignore")
             target = f"{path}?{query}" if query else path
 
-            logger.info(f"👉 [{client_ip}] {method} {target}")
+            logger.info(f"REQ [{client_ip}] {method} {target}")
 
             async def logging_send(message):
                 if message["type"] == "http.response.start":
                     status = message.get("status", 200)
-                    logger.info(f"👈 [{client_ip}] {method} {path} -> HTTP {status}")
+                    logger.info(f"RES [{client_ip}] {method} {path} -> HTTP {status}")
                 await send(message)
 
             await self.app(scope, receive, logging_send)
@@ -648,11 +648,11 @@ def main():
     # If PORT is explicitly set in environment or --sse is passed, run HTTP server
     if args.sse or os.getenv("PORT"):
         import uvicorn
-        logger.info(f"🚀 Four Corner Cloud Server listening on http://{args.host}:{args.port}")
-        logger.info(f"   • Claude / ChatGPT MCP SSE: http://{args.host}:{args.port}/sse")
-        logger.info(f"   • ChatGPT OpenAPI Schema:   http://{args.host}:{args.port}/openapi.json")
-        logger.info(f"   • OAuth 2.0 Authorize URL: http://{args.host}:{args.port}/oauth/authorize")
-        logger.info(f"   • Health Check Endpoint:    http://{args.host}:{args.port}/health")
+        logger.info(f"Four Corner Cloud Server listening on http://{args.host}:{args.port}")
+        logger.info(f"   - Claude / ChatGPT MCP SSE: http://{args.host}:{args.port}/sse")
+        logger.info(f"   - ChatGPT OpenAPI Schema:   http://{args.host}:{args.port}/openapi.json")
+        logger.info(f"   - OAuth 2.0 Authorize URL: http://{args.host}:{args.port}/oauth/authorize")
+        logger.info(f"   - Health Check Endpoint:    http://{args.host}:{args.port}/health")
         uvicorn.run("four_corner.server:app", host=args.host, port=args.port, log_level="info", access_log=True)
     else:
         # Standard local MCP stdio mode

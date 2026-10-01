@@ -42,7 +42,7 @@ Once your server is deployed to Render, Railway, or Fly.io:
      }
    }
    ```
-3. Claude automatically discovers all 6 tools from the cloud server and displays the hammer 🔨 tool icon in chat!
+3. Claude automatically discovers all 6 tools from the cloud server and displays the hammer  tool icon in chat!
 
 ---
 

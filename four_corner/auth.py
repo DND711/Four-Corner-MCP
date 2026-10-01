@@ -275,7 +275,9 @@ def render_login_page(
     <!-- Purpose / Explanation -->
     <div class="mb-6 p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
       <div class="flex items-start gap-2.5">
-        <span class="text-emerald-400 text-sm mt-0.5">✓</span>
+        <svg class="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
         <p class="text-xs text-slate-300 leading-relaxed">
           Sign in to connect Four Corner with <strong class="text-white">ChatGPT</strong>. Save your search criteria, compare floor plans, and access direct developer pricing with zero broker commission.
         </p>

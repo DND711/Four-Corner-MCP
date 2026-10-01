@@ -133,19 +133,19 @@ def compute_buyer_intent(db, user_id: str) -> Dict[str, Any]:
     # Determine CRM Tier
     if total_score >= 75:
         tier = "TRANSACTION_READY"
-        readiness_label = "🟢 High-Intent Buyer (Ready to buy within 30 days)"
+        readiness_label = "High-Intent Buyer (Ready to buy within 30 days)"
         recommended_action = "Priority site visit assignment with zero broker commission"
     elif total_score >= 50:
         tier = "SERIOUS_EVALUATOR"
-        readiness_label = "🟡 Serious Evaluator (Evaluating blueprints & cost sheets)"
+        readiness_label = "Serious Evaluator (Evaluating blueprints and cost sheets)"
         recommended_action = "Provide architectural blueprints, payment milestones, and bank loan pre-clearance"
     elif total_score >= 25:
         tier = "WARM_RESEARCHER"
-        readiness_label = "🟠 Warm Researcher (Exploring micro-markets & budgets)"
+        readiness_label = "Warm Researcher (Exploring micro-markets and budgets)"
         recommended_action = "Share micro-market price appreciation trends and neighborhood infrastructure updates"
     else:
         tier = "CASUAL_BROWSER"
-        readiness_label = "⚪ Casual Browser (Market curiosity)"
+        readiness_label = "Casual Browser (Market curiosity)"
         recommended_action = "Standard AI automated guidance; no sales desk dispatch needed"
 
     breakdown = {

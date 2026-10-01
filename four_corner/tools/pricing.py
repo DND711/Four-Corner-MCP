@@ -9,7 +9,7 @@ from four_corner.models.schemas import PriceBreakdown
 
 def get_transparent_pricing_breakdown(db: Database, unit_id: str) -> Dict[str, Any]:
     """
-    Generate an unadulterated builder cost sheet for a specific unit.
+    Generate an itemized builder cost sheet for a specific unit.
     Reveals all hidden components: base rate, floor rise, corner premium, parking, clubhouse, and GST.
     Guarantees 100% direct developer pricing with zero broker commission.
     """
