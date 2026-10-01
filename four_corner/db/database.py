@@ -110,13 +110,25 @@ class PostgresCursorWrapper:
             self._cursor.execute(adapted_q)
         return self
 
+    def _format_row(self, row):
+        if row is None:
+            return None
+        from decimal import Decimal
+        d = dict(row)
+        for k, v in d.items():
+            if hasattr(v, "isoformat"):
+                d[k] = v.isoformat()
+            elif isinstance(v, Decimal):
+                d[k] = float(v)
+        return d
+
     def fetchone(self):
         row = self._cursor.fetchone()
-        return dict(row) if row is not None else None
+        return self._format_row(row)
 
     def fetchall(self):
         rows = self._cursor.fetchall()
-        return [dict(r) for r in rows]
+        return [self._format_row(r) for r in rows]
 
     @property
     def lastrowid(self):
