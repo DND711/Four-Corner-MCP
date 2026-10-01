@@ -1,6 +1,6 @@
 """
-Four Corner Buyer Readiness & Intent Scoring Engine (B-RISE).
-Quantifies buyer purpose, commitment, and purchasing stage across 5 dimensions.
+Four Corner Buyer Intent and Readiness Scoring System.
+Calculates buyer readiness and search requirements across key property evaluation criteria.
 """
 
 import json
@@ -130,23 +130,23 @@ def compute_buyer_intent(db, user_id: str) -> Dict[str, Any]:
     # Total Score (0 - 100)
     total_score = fin_score + commute_score + arch_score + legal_score + action_score
 
-    # Determine CRM Tier
+    # Determine Buyer Intent Tier
     if total_score >= 75:
         tier = "TRANSACTION_READY"
-        readiness_label = "High-Intent Buyer (Ready to buy within 30 days)"
-        recommended_action = "Priority site visit assignment with zero broker commission"
+        readiness_label = "High Intent (Ready to purchase within 30-60 days)"
+        recommended_action = "Schedule property site visit and direct builder contact"
     elif total_score >= 50:
         tier = "SERIOUS_EVALUATOR"
-        readiness_label = "Serious Evaluator (Evaluating blueprints and cost sheets)"
-        recommended_action = "Provide architectural blueprints, payment milestones, and bank loan pre-clearance"
+        readiness_label = "Active Evaluator (Reviewing floor plans and price breakdown)"
+        recommended_action = "Provide floor plans, milestone payment schedules, and bank approvals"
     elif total_score >= 25:
         tier = "WARM_RESEARCHER"
-        readiness_label = "Warm Researcher (Exploring micro-markets and budgets)"
-        recommended_action = "Share micro-market price appreciation trends and neighborhood infrastructure updates"
+        readiness_label = "Active Searcher (Comparing areas and budgets)"
+        recommended_action = "Share area pricing benchmarks and project details"
     else:
         tier = "CASUAL_BROWSER"
-        readiness_label = "Casual Browser (Market curiosity)"
-        recommended_action = "Standard AI automated guidance; no sales desk dispatch needed"
+        readiness_label = "Casual Browser (Initial research)"
+        recommended_action = "Standard automated assistant search support"
 
     breakdown = {
         "financial_precision": {"score": fin_score, "max": 25},
