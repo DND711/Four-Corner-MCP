@@ -222,3 +222,37 @@ def test_oauth_flow():
     assert adm_res.json()["total_buyers"] > 0
 
 
+def test_add_property_manual_entry():
+    """Test manual property & unit entry via POST /api/v1/properties/add."""
+    from starlette.testclient import TestClient
+    from four_corner.server import app
+
+    client = TestClient(app)
+    payload = {
+        "project_name": "Aparna CyberHeights",
+        "developer": "Aparna Constructions",
+        "micro_market": "Nanakramguda",
+        "rera_id": "P02400009999",
+        "handover_year": 2026,
+        "tower": "Tower 2",
+        "floor": 12,
+        "bhk": 3.0,
+        "facing": "East",
+        "is_corner_unit": True,
+        "super_built_up_sqft": 1950,
+        "carpet_area_sqft": 1450,
+        "balcony_sqft": 90,
+        "base_rate_per_sqft": 8200
+    }
+    res = client.post("/api/v1/properties/add", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "unit" in data
+    assert data["unit"]["project_name"] == "Aparna CyberHeights"
+    assert data["unit"]["carpet_area_sqft"] == 1450
+    assert data["unit"]["is_corner_unit"] is True
+    assert data["unit"]["total_price_cr"] > 1.0
+
+
+

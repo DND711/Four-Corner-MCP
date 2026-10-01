@@ -575,6 +575,116 @@ async def api_rera(request: Request) -> JSONResponse:
     return JSONResponse(result)
 
 
+@server.custom_route("/api/v1/properties/add", methods=["POST"])
+async def api_add_property(request: Request) -> JSONResponse:
+    """REST endpoint: Manual entry of property & unit details."""
+    import re
+    import time
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"status": "error", "message": "Invalid JSON body"}, status_code=400)
+
+    project_name = str(data.get("project_name", "")).strip()
+    if not project_name:
+        return JSONResponse({"status": "error", "message": "Missing required 'project_name'"}, status_code=400)
+
+    developer = str(data.get("developer", "Direct Builder")).strip()
+    micro_market = str(data.get("micro_market", "Tellapur")).strip()
+    rera_id = str(data.get("rera_id", f"P0240000{int(time.time()) % 10000}")).strip()
+    handover_year = int(data.get("handover_year", 2026))
+
+    tower = str(data.get("tower", "Tower 1")).strip()
+    floor = int(data.get("floor", 5))
+    bhk = float(data.get("bhk", 3.0))
+    facing = str(data.get("facing", "East")).strip()
+    is_corner_unit = 1 if data.get("is_corner_unit") else 0
+    super_built_up_sqft = int(data.get("super_built_up_sqft", 1850))
+    carpet_area_sqft = int(data.get("carpet_area_sqft", int(super_built_up_sqft * 0.74)))
+    balcony_sqft = int(data.get("balcony_sqft", 85))
+    balcony_facing = str(data.get("balcony_facing", facing)).strip()
+    has_morning_sunlight = 1 if (data.get("has_morning_sunlight") or "east" in facing.lower() or "east" in balcony_facing.lower()) else 0
+    base_rate_per_sqft = int(data.get("base_rate_per_sqft", 7500))
+
+    floor_rise_charges = int(data.get("floor_rise_charges", max(0, (floor - 1) * 25 * super_built_up_sqft)))
+    corner_premium_charges = int(data.get("corner_premium_charges", 250000 if is_corner_unit else 0))
+    car_parking_charges = int(data.get("car_parking_charges", 500000))
+    clubhouse_charges = int(data.get("clubhouse_charges", 400000))
+    infra_charges = int(data.get("infra_charges", 300000))
+
+    base_cost = super_built_up_sqft * base_rate_per_sqft
+    subtotal = base_cost + floor_rise_charges + corner_premium_charges + clubhouse_charges + car_parking_charges + infra_charges
+    gst = int(subtotal * 0.05)
+    total_out_the_door_inr = subtotal + gst
+    total_price_cr = round(total_out_the_door_inr / 10000000.0, 2)
+
+    proj_prefix = re.sub(r'[^A-Za-z0-9]', '', project_name)[:3].upper() or "PRJ"
+    project_id = f"prj_{proj_prefix.lower()}"
+    tower_num = re.sub(r'[^0-9]', '', tower) or "1"
+    unit_id = str(data.get("unit_id") or f"{proj_prefix}-T{tower_num}-{floor:02d}01").strip()
+
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO projects (
+                id, name, developer, rera_id, micro_market, promoter_legal_entity,
+                sanctioning_authority, approved_towers, registered_handover_date,
+                handover_year, status, escrow_compliant, litigations_reported,
+                quarterly_compliance_up_to_date, total_acres, clubhouse_sqft, open_space_pct
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                project_id, project_name, developer, rera_id, micro_market,
+                f"{developer} Projects Ltd", "GHMC / HMDA", 4,
+                f"31 Dec {handover_year}", handover_year, "Under Construction",
+                1, 0, 1, 10.0, 45000, 78.0
+            )
+        )
+
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO units (
+                id, project_id, tower, floor, bhk, facing, is_corner_unit,
+                super_built_up_sqft, carpet_area_sqft, balcony_sqft, balcony_facing,
+                has_morning_sunlight, base_rate_per_sqft, floor_rise_charges,
+                corner_premium_charges, clubhouse_charges, car_parking_slots,
+                car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                unit_id, project_id, tower, floor, bhk, facing, is_corner_unit,
+                super_built_up_sqft, carpet_area_sqft, balcony_sqft, balcony_facing,
+                has_morning_sunlight, base_rate_per_sqft, floor_rise_charges,
+                corner_premium_charges, clubhouse_charges, 2,
+                car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr
+            )
+        )
+        conn.commit()
+
+    return JSONResponse({
+        "status": "success",
+        "message": f"Property unit {unit_id} successfully registered in {project_name}",
+        "unit": {
+            "unit_id": unit_id,
+            "project_name": project_name,
+            "developer": developer,
+            "micro_market": micro_market,
+            "rera_id": rera_id,
+            "tower": tower,
+            "floor": floor,
+            "bhk": bhk,
+            "facing": facing,
+            "is_corner_unit": bool(is_corner_unit),
+            "carpet_area_sqft": carpet_area_sqft,
+            "super_built_up_sqft": super_built_up_sqft,
+            "usable_efficiency_pct": round((carpet_area_sqft / super_built_up_sqft) * 100.0, 1),
+            "total_price_cr": total_price_cr,
+            "total_out_the_door_inr": total_out_the_door_inr
+        }
+    })
+
+
 # ==========================================
 # ASGI Application Factory with CORS & Transport Security
 # ==========================================
