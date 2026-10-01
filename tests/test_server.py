@@ -184,7 +184,7 @@ def test_oauth_flow():
 
     # 3. User submits login/signup
     post_res = client.post("/oauth/authorize", data={
-        "name": "Sahith Test",
+        "name": "Sample Buyer",
         "email": "test_buyer@fourcorner.in",
         "phone": "+91 99999 88888",
         "micro_market_pref": "Tellapur",

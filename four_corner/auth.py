@@ -268,7 +268,7 @@ def render_login_page(
       </div>
       <div>
         <h1 class="text-lg font-bold text-white tracking-tight">Four Corner</h1>
-        <p class="text-xs text-slate-400">Verified Real Estate Intelligence</p>
+        <p class="text-xs text-slate-400">Hyderabad Real Estate Search</p>
       </div>
     </div>
 
@@ -279,7 +279,7 @@ def render_login_page(
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
         </svg>
         <p class="text-xs text-slate-300 leading-relaxed">
-          Sign in to connect Four Corner with <strong class="text-white">ChatGPT</strong>. Save your search criteria, compare floor plans, and access direct developer pricing with zero broker commission.
+          Sign in to connect with <strong class="text-white">ChatGPT</strong>. Save your favorite properties, view floor plans, and see direct builder prices without broker fees.
         </p>
       </div>
     </div>
@@ -292,16 +292,15 @@ def render_login_page(
       <input type="hidden" name="code_challenge" value="{code_challenge or ''}">
       <input type="hidden" name="code_challenge_method" value="{code_challenge_method or ''}">
 
-
       <div>
         <label class="block text-xs font-semibold text-slate-300 mb-1.5">Full Name *</label>
-        <input type="text" name="name" required placeholder="e.g. Sahith Thota"
+        <input type="text" name="name" required placeholder="Enter your full name"
           class="w-full bg-[#0B0F17] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
       </div>
 
       <div>
         <label class="block text-xs font-semibold text-slate-300 mb-1.5">Email Address *</label>
-        <input type="email" name="email" required placeholder="you@example.com"
+        <input type="email" name="email" required placeholder="name@email.com"
           class="w-full bg-[#0B0F17] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
       </div>
 
@@ -314,16 +313,15 @@ def render_login_page(
       <div class="pt-2">
         <button type="submit"
           class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 px-4 rounded-xl text-sm transition shadow-lg shadow-emerald-500/20 cursor-pointer flex items-center justify-center gap-2">
-          <span>Authorize & Connect with ChatGPT</span>
+          <span>Continue with ChatGPT</span>
           <span>→</span>
         </button>
       </div>
     </form>
 
-
     <div class="mt-5 text-center">
       <p class="text-[11px] text-slate-500">
-        By connecting, you agree to Four Corner's zero-broker buyer policy. We never sell your number to telemarketers.
+        Your details are kept private and never shared with spam callers or third-party brokers.
       </p>
     </div>
 
