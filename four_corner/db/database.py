@@ -244,6 +244,15 @@ class Database:
                     cur.execute(sql_script)
                     conn.commit()
                     self.seed_database(conn)
+                else:
+                    # Ensure B-RISE intent scoring columns exist
+                    cur.execute("""
+                        ALTER TABLE users ADD COLUMN IF NOT EXISTS intent_score INTEGER NOT NULL DEFAULT 0;
+                        ALTER TABLE users ADD COLUMN IF NOT EXISTS buyer_tier TEXT NOT NULL DEFAULT 'CASUAL_BROWSER';
+                        ALTER TABLE users ADD COLUMN IF NOT EXISTS intent_breakdown TEXT;
+                        ALTER TABLE users ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                    """)
+                    conn.commit()
         else:
             schema_file = DB_DIR / "schema.sql"
             with self.get_connection() as conn:
@@ -258,6 +267,18 @@ class Database:
                     cursor.execute("ALTER TABLE oauth_codes ADD COLUMN code_challenge TEXT")
                 if cols and "code_challenge_method" not in cols:
                     cursor.execute("ALTER TABLE oauth_codes ADD COLUMN code_challenge_method TEXT")
+
+                # Auto-migrate users columns for intent scoring
+                cursor.execute("PRAGMA table_info(users)")
+                u_cols = [c[1] for c in cursor.fetchall()]
+                if u_cols and "intent_score" not in u_cols:
+                    cursor.execute("ALTER TABLE users ADD COLUMN intent_score INTEGER DEFAULT 0")
+                if u_cols and "buyer_tier" not in u_cols:
+                    cursor.execute("ALTER TABLE users ADD COLUMN buyer_tier TEXT DEFAULT 'CASUAL_BROWSER'")
+                if u_cols and "intent_breakdown" not in u_cols:
+                    cursor.execute("ALTER TABLE users ADD COLUMN intent_breakdown TEXT")
+                if u_cols and "last_activity_at" not in u_cols:
+                    cursor.execute("ALTER TABLE users ADD COLUMN last_activity_at TIMESTAMP DEFAULT NULL")
                 conn.commit()
                 
                 # Ensure all verified inventory and latest seed data are synced

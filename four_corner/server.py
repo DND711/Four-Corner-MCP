@@ -416,11 +416,13 @@ async def oauth_userinfo(request: Request) -> JSONResponse:
 
 @server.custom_route("/api/v1/admin/buyers", methods=["GET"])
 async def admin_buyers(request: Request) -> JSONResponse:
-    """Inspect all registered buyer leads and inquiries captured via ChatGPT & OAuth."""
+    """Inspect all registered buyer leads, B-RISE intent scores, and inquiries captured via ChatGPT & OAuth."""
+    from four_corner.scoring import compute_buyer_intent
+    
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users ORDER BY created_at DESC")
-        buyers = [dict(r) for r in cursor.fetchall()]
+        raw_buyers = [dict(r) for r in cursor.fetchall()]
         
         cursor.execute("SELECT * FROM user_inquiries ORDER BY created_at DESC")
         inquiries = [dict(r) for r in cursor.fetchall()]
@@ -428,10 +430,22 @@ async def admin_buyers(request: Request) -> JSONResponse:
         cursor.execute("SELECT * FROM user_saved_units ORDER BY saved_at DESC")
         saved = [dict(r) for r in cursor.fetchall()]
 
+    enriched_buyers = []
+    for b in raw_buyers:
+        intent = compute_buyer_intent(db, b["id"])
+        b["readiness_score"] = intent["intent_score"]
+        b["buyer_tier"] = intent["buyer_tier"]
+        b["readiness_label"] = intent["readiness_label"]
+        b["recommended_action"] = intent["recommended_action"]
+        b["intent_breakdown"] = intent["breakdown"]
+        b["saved_units_count"] = intent["total_saved_units"]
+        b["inquiries_count"] = intent["total_inquiries"]
+        enriched_buyers.append(b)
+
     return JSONResponse({
         "database_engine": "postgresql" if db.is_postgres else "sqlite",
-        "total_buyers": len(buyers),
-        "buyers": buyers,
+        "total_buyers": len(enriched_buyers),
+        "buyers": enriched_buyers,
         "total_inquiries": len(inquiries),
         "inquiries": inquiries,
         "total_saved_units": len(saved),
