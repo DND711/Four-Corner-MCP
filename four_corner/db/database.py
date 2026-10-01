@@ -188,7 +188,14 @@ class Database:
 
         if self.database_url:
             if PSYCOPG2_AVAILABLE:
-                self.is_postgres = True
+                try:
+                    test_conn = psycopg2.connect(self.database_url, connect_timeout=5)
+                    test_conn.close()
+                    self.is_postgres = True
+                    print("Connected successfully to PostgreSQL database.")
+                except Exception as e:
+                    print(f"Warning: Failed to connect to DATABASE_URL: {e}. Falling back to SQLite.")
+                    self.is_postgres = False
             else:
                 print("Warning: DATABASE_URL provided but psycopg2 is not installed. Falling back to SQLite.")
 
