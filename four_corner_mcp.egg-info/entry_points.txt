@@ -1,0 +1,2 @@
+[console_scripts]
+four-corner-mcp = four_corner.server:main

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "four-corner": {
+      "command": "/Users/sahiththota/.gemini/antigravity-ide/scratch/four-corner-mcp/.venv/bin/four-corner-mcp",
+      "args": []
+    }
+  }
+}
