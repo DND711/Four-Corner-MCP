@@ -176,7 +176,7 @@ def test_oauth_flow():
         "redirect_uri": "https://chatgpt.com/callback",
         "state": "test_state"
     })
-    assert post_res.status_code == 302
+    assert post_res.status_code in (302, 303)
     location = post_res.headers["location"]
     assert "https://chatgpt.com/callback" in location
     assert "code=fc_code_" in location

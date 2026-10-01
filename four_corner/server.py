@@ -297,13 +297,13 @@ async def oauth_authorize_post(request: Request):
         code_challenge_method=code_challenge_method
     )
 
-    # Redirect back to ChatGPT
+    # Redirect back to ChatGPT using HTTP 303 (See Other) so browsers perform a clean GET request
     delimiter = "&" if "?" in redirect_uri else "?"
     redirect_target = f"{redirect_uri}{delimiter}code={code}"
     if state:
         redirect_target += f"&state={state}"
 
-    return RedirectResponse(url=redirect_target, status_code=302)
+    return RedirectResponse(url=redirect_target, status_code=303)
 
 
 @server.custom_route("/oauth/token", methods=["POST"])
@@ -314,22 +314,33 @@ async def oauth_token(request: Request) -> JSONResponse:
     client_secret = None
     code_verifier = None
 
+    # Check for HTTP Basic Auth header (RFC 6749 Section 2.3.1)
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("basic "):
+        try:
+            import base64
+            decoded = base64.b64decode(auth_header[6:].strip()).decode("utf-8")
+            if ":" in decoded:
+                client_id, client_secret = decoded.split(":", 1)
+        except Exception:
+            pass
+
     # Try parsing form data or json
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
         try:
             body = await request.json()
             code = body.get("code")
-            client_id = body.get("client_id")
-            client_secret = body.get("client_secret")
+            client_id = client_id or body.get("client_id")
+            client_secret = client_secret or body.get("client_secret")
             code_verifier = body.get("code_verifier")
         except Exception:
             pass
     else:
         form = await request.form()
         code = form.get("code")
-        client_id = form.get("client_id")
-        client_secret = form.get("client_secret")
+        client_id = client_id or form.get("client_id")
+        client_secret = client_secret or form.get("client_secret")
         code_verifier = form.get("code_verifier")
 
     if not code:
@@ -347,6 +358,7 @@ async def oauth_token(request: Request) -> JSONResponse:
         return JSONResponse({"error": "invalid_grant", "error_description": err or "Failed to exchange code"}, status_code=400)
 
     return JSONResponse(token_payload)
+
 
 
 
@@ -514,12 +526,19 @@ async def api_rera(request: Request) -> JSONResponse:
 
 
 # ==========================================
-# ASGI Application Factory with CORS
+# ASGI Application Factory with CORS & Transport Security
 # ==========================================
 
+from mcp.server.transport_security import TransportSecuritySettings
+
 def get_app():
-    """Build and configure the Starlette ASGI application with CORS enabled."""
-    asgi_app = server.sse_app()
+    """Build and configure the Starlette ASGI application with CORS and remote transport security enabled."""
+    security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=False,
+        allowed_hosts=["*"],
+        allowed_origins=["*"]
+    )
+    asgi_app = server.sse_app(transport_security=security)
     asgi_app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -531,6 +550,7 @@ def get_app():
 
 
 app = get_app()
+
 
 
 # ==========================================

@@ -177,8 +177,9 @@ class Database:
         params = []
 
         if micro_market:
-            query += " AND LOWER(p.micro_market) = LOWER(?)"
-            params.append(micro_market.strip())
+            clean_market = micro_market.strip()
+            query += " AND (LOWER(p.micro_market) LIKE LOWER(?) OR LOWER(?) LIKE '%' || LOWER(p.micro_market) || '%')"
+            params.extend([f"%{clean_market}%", clean_market])
         if max_budget_cr is not None:
             query += " AND u.total_price_cr <= ?"
             params.append(max_budget_cr)
@@ -186,11 +187,12 @@ class Database:
             query += " AND u.total_price_cr >= ?"
             params.append(min_budget_cr)
         if bhk is not None:
-            query += " AND u.bhk = ?"
-            params.append(bhk)
+            query += " AND (u.bhk = ? OR (u.bhk >= ? AND u.bhk < ? + 1.0))"
+            params.extend([bhk, bhk, bhk])
         if facing:
-            query += " AND LOWER(u.facing) = LOWER(?)"
-            params.append(facing.strip())
+            query += " AND LOWER(u.facing) LIKE LOWER(?)"
+            params.append(f"%{facing.strip()}%")
+
         if corner_only:
             query += " AND u.is_corner_unit = 1"
         if morning_sunlight_only:
