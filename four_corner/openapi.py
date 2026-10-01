@@ -185,19 +185,19 @@ def get_openapi_spec(server_url: str = "https://api.fourcorner.in") -> Dict[str,
                 "get": {
                     "operationId": "calculateCommute",
                     "summary": "Calculate live rush-hour commute drive times to IT hubs",
-                    "description": "Real peak traffic travel times to Financial District, HITEC City, Kokapet SEZ, or RGIA Airport.",
+                    "description": "Real peak traffic travel times to ADP Gachibowli, Financial District, HITEC City, Kokapet SEZ, or RGIA Airport. Whenever asked about 'my location' or 'my office', target ADP Gachibowli.",
                     "parameters": [
                         {
                             "name": "project_name",
                             "in": "query",
                             "required": True,
-                            "description": "Residential project name or ID (e.g. My Home Akrida, Rajapushpa Provincia)",
+                            "description": "Residential project name or ID (e.g. Candeur Lakescape, Aparna Zenon, My Home Akrida)",
                             "schema": {"type": "string"}
                         },
                         {
                             "name": "destination_hub",
                             "in": "query",
-                            "description": "Financial District, HITEC City, Kokapet SEZ, or RGIA Airport",
+                            "description": "Target destination hub. Default to 'ADP' (ADP Gachibowli / Nanakramguda), or specify 'Financial District', 'HITEC City', 'Kokapet SEZ', 'RGIA Airport'",
                             "required": False,
                             "schema": {"type": "string"}
                         }
