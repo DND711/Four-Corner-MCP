@@ -59,11 +59,78 @@ Verify all tools and database queries:
 pytest -v
 ```
 
+## Cloud Hosting & AI Website Integration
+
+Four Corner runs in dual-mode:
+1. **Local Mode (`stdio`)**: For local Claude Desktop, Cursor, and Windsurf clients.
+2. **Cloud Web Service (`SSE` + REST)**: Hosts both Claude Server-Sent Events (SSE) and ChatGPT Custom GPT Actions simultaneously.
+
 ---
 
-## Client Integration
+### 🌐 1. Deploying to the Cloud (Free 24/7 Hosting)
 
-### Claude Desktop Configuration
+The repository includes a ready-to-deploy `Dockerfile` and `render.yaml`.
+
+#### Option A: 1-Click Deploy on Render
+1. Push this repository to your GitHub account: `https://github.com/DND711/Four-Corner-MCP`.
+2. Go to [Render.com](https://render.com) -> **New Web Service** -> Select `Four-Corner-MCP`.
+3. Render detects the Dockerfile and deploys it automatically.
+4. Your server will be live at:
+   - **OpenAPI Schema (for ChatGPT)**: `https://<your-app>.onrender.com/openapi.json`
+   - **Claude MCP SSE Endpoint**: `https://<your-app>.onrender.com/sse`
+   - **Health Check**: `https://<your-app>.onrender.com/health`
+
+#### Option B: Run Cloud Server Locally
+```bash
+python -m four_corner.server --sse --port 8000
+```
+
+---
+
+### 🤖 2. ChatGPT Store (Plugin Store / Custom GPT)
+
+Four Corner can be published to the global **ChatGPT Store** so anyone on ChatGPT can search, install, and use it directly.
+
+- **Full Step-by-Step Guide**: See [GPT_STORE_GUIDE.md](file:///Users/sahiththota/.gemini/antigravity-ide/scratch/four-corner-mcp/GPT_STORE_GUIDE.md)
+- **OpenAPI Spec File**: [chatgpt_actions_schema.json](file:///Users/sahiththota/.gemini/antigravity-ide/scratch/four-corner-mcp/chatgpt_actions_schema.json)
+
+**Quick Setup in ChatGPT:**
+1. Open [chatgpt.com](https://chatgpt.com) -> **Explore GPTs** -> **+ Create**.
+2. Go to the **Configure** tab -> Add Name, Description, and Instructions.
+3. Scroll to **Actions** -> Click **Create new action** -> **Import from URL** -> Paste your `https://<your-app>.onrender.com/openapi.json`.
+4. Click **Publish to Everyone** (The Public GPT Store).
+
+---
+
+### 🔮 3. Claude & Public MCP Directory Discovery
+
+- **Full Step-by-Step Guide**: See [CLAUDE_DIRECTORY_GUIDE.md](file:///Users/sahiththota/.gemini/antigravity-ide/scratch/four-corner-mcp/CLAUDE_DIRECTORY_GUIDE.md)
+- **Smithery Registry Manifest**: [smithery.yaml](file:///Users/sahiththota/.gemini/antigravity-ide/scratch/four-corner-mcp/smithery.yaml)
+
+#### Discoverable on Smithery.ai:
+1. Submit your repo at [smithery.ai](https://smithery.ai).
+2. Users can 1-click install into Claude Desktop or run:
+   ```bash
+   npx -y @smithery/cli install @DND711/Four-Corner-MCP --client claude
+   ```
+
+#### Remote Claude Connection (Zero Local Setup):
+Claude users can connect to your remote cloud server directly via SSE without running code on their local machine:
+```json
+{
+  "mcpServers": {
+    "four-corner": {
+      "url": "https://<your-app>.onrender.com/sse"
+    }
+  }
+}
+```
+
+---
+
+## Local Client Integration (Desktop & Editors)
+
+### Claude Desktop Configuration (Local stdio)
 
 Add the following entry to your `claude_desktop_config.json`:
 
@@ -83,7 +150,7 @@ Add the following entry to your `claude_desktop_config.json`:
 
 ### Cursor / Windsurf Configuration
 
-Add to your project's `.cursor/mcp.json` or global MCP settings:
+Add to your project's `.cursor/mcp.json`:
 
 ```json
 {
@@ -99,7 +166,7 @@ Add to your project's `.cursor/mcp.json` or global MCP settings:
 
 ## Example Prompts to Ask Your AI
 
-Once connected, you can ask your AI assistant questions naturally:
+Once connected in Claude or ChatGPT:
 
 - *"Find me 3BHK corner units in Kokapet or Tellapur under ₹1.5 Cr ready before 2026 with east-facing balconies."*
 - *"Show me the true carpet efficiency and master bedroom dimensions for unit AKR-T3-1202."*
@@ -112,3 +179,4 @@ Once connected, you can ask your AI assistant questions naturally:
 ## License
 
 MIT License. Designed & Built for the Four Corner Property Intelligence ecosystem.
+

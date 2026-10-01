@@ -1,0 +1,12 @@
+# Render Blueprint for Four Corner Cloud Deployment
+services:
+  - type: web
+    name: four-corner-mcp
+    runtime: docker
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 8000
+    healthCheckPath: /health
+    autoDeploy: true

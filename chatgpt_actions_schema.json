@@ -1,0 +1,279 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Four Corner Property Intelligence API",
+    "description": "Direct developer real estate discovery, transparent builder cost sheets, and RERA verification for Hyderabad without broker markups.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://four-corner-mcp.onrender.com",
+      "description": "Four Corner API Server"
+    }
+  ],
+  "paths": {
+    "/api/v1/properties/search": {
+      "get": {
+        "operationId": "searchProperties",
+        "summary": "Search verified residential properties in Hyderabad",
+        "description": "Query official builder inventories by micro-market, budget, BHK, facing, and architectural features with zero broker markups.",
+        "parameters": [
+          {
+            "name": "micro_market",
+            "in": "query",
+            "description": "Neighborhood (Kokapet, Financial District, Tellapur, Narsingi, Gachibowli)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "max_budget_cr",
+            "in": "query",
+            "description": "Maximum budget ceiling in Crores (e.g. 1.5 for \u20b91.5 Cr)",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "min_budget_cr",
+            "in": "query",
+            "description": "Minimum budget in Crores",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "bhk",
+            "in": "query",
+            "description": "Number of bedrooms (2, 2.5, 3, 4, 4.5)",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "facing",
+            "in": "query",
+            "description": "Balcony / entrance orientation (East, West, North, South)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "corner_only",
+            "in": "query",
+            "description": "Filter for dual-aspect corner units",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "morning_sunlight_only",
+            "in": "query",
+            "description": "Filter for direct morning sunlight units",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "ready_by_year",
+            "in": "query",
+            "description": "Maximum handover year (e.g. 2026)",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "min_carpet_sqft",
+            "in": "query",
+            "description": "Minimum actual usable indoor carpet area in sq ft",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching verified units with pricing and carpet areas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/properties/floor-plan/{unit_id}": {
+      "get": {
+        "operationId": "getFloorPlan",
+        "summary": "Get architectural room dimensions and carpet area",
+        "description": "Retrieve verified room-by-room architectural measurements and true usable efficiency.",
+        "parameters": [
+          {
+            "name": "unit_id",
+            "in": "path",
+            "required": true,
+            "description": "Unique unit identifier (e.g. AKR-T3-1202, TRK-T2-1801)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detailed architectural layout breakdown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/properties/pricing/{unit_id}": {
+      "get": {
+        "operationId": "getPricingBreakdown",
+        "summary": "Get unbundled developer cost sheet and \u20b90 broker fee guarantee",
+        "description": "Reveals base rate, floor rise, parking, clubhouse, GST, and direct builder pricing.",
+        "parameters": [
+          {
+            "name": "unit_id",
+            "in": "path",
+            "required": true,
+            "description": "Unique unit identifier (e.g. AKR-T3-1202)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Complete builder cost sheet including floor rise, parking, and GST",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/properties/compare": {
+      "get": {
+        "operationId": "compareProperties",
+        "summary": "Compare multiple residential units side-by-side",
+        "description": "Side-by-side comparison on carpet area efficiency, price per carpet sqft, and delivery dates.",
+        "parameters": [
+          {
+            "name": "unit_ids",
+            "in": "query",
+            "required": true,
+            "description": "Comma-separated list of unit IDs (e.g. AKR-T3-1202,PRV-T7-1403)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Side-by-side comparative analysis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/commute/calculate": {
+      "get": {
+        "operationId": "calculateCommute",
+        "summary": "Calculate live rush-hour commute drive times to IT hubs",
+        "description": "Real peak traffic travel times to Financial District, HITEC City, Kokapet SEZ, or RGIA Airport.",
+        "parameters": [
+          {
+            "name": "project_name",
+            "in": "query",
+            "required": true,
+            "description": "Residential project name or ID (e.g. My Home Akrida, Rajapushpa Provincia)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "destination_hub",
+            "in": "query",
+            "description": "Financial District, HITEC City, Kokapet SEZ, or RGIA Airport",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Morning and evening rush-hour commute metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/rera/verify": {
+      "get": {
+        "operationId": "verifyRERA",
+        "summary": "Verify Telangana RERA legal registration and bank escrow compliance",
+        "description": "Checks official TS-RERA approval, escrow account status, and quarterly filing compliance.",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Project name or RERA ID (e.g. P02400005128)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Government filing details and escrow audit status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

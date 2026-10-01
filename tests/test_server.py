@@ -97,3 +97,53 @@ def test_compare_units(test_db):
     for item in res["comparison"]:
         assert "carpet_area_sqft" in item
         assert "true_rate_per_carpet_sqft" in item
+
+
+def test_rest_api_endpoints():
+    """Test Starlette REST API endpoints for ChatGPT Actions."""
+    from starlette.testclient import TestClient
+    from four_corner.server import app
+
+    client = TestClient(app)
+
+    # Health check
+    h = client.get("/health")
+    assert h.status_code == 200
+    assert h.json()["status"] == "healthy"
+
+    # OpenAPI 3.1.0 schema
+    o = client.get("/openapi.json")
+    assert o.status_code == 200
+    assert o.json()["openapi"] == "3.1.0"
+    assert "/api/v1/properties/search" in o.json()["paths"]
+
+    # Search endpoint
+    s = client.get("/api/v1/properties/search?micro_market=Tellapur")
+    assert s.status_code == 200
+    assert s.json()["status"] == "success"
+
+    # Floor plan endpoint
+    fp = client.get("/api/v1/properties/floor-plan/AKR-T3-1202")
+    assert fp.status_code == 200
+    assert fp.json()["status"] == "success"
+
+    # Pricing endpoint
+    pr = client.get("/api/v1/properties/pricing/AKR-T3-1202")
+    assert pr.status_code == 200
+    assert pr.json()["status"] == "success"
+
+    # Commute endpoint
+    cm = client.get("/api/v1/commute/calculate?project_name=My+Home+Akrida")
+    assert cm.status_code == 200
+    assert cm.json()["status"] == "success"
+
+    # RERA endpoint
+    rr = client.get("/api/v1/rera/verify?query=P02400005128")
+    assert rr.status_code == 200
+    assert rr.json()["status"] == "success"
+
+    # Compare endpoint
+    cp = client.get("/api/v1/properties/compare?unit_ids=AKR-T3-1202,PRV-T7-1403")
+    assert cp.status_code == 200
+    assert cp.json()["status"] == "success"
+

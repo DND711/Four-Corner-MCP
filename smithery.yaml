@@ -1,0 +1,18 @@
+# Smithery.ai Registry Manifest for Claude & MCP Clients
+# Allows Claude users to discover and 1-click install Four Corner directly from Smithery.ai
+name: "four-corner"
+version: "1.0.0"
+description: "Direct developer real estate discovery, transparent builder cost sheets, architectural floor plans, and TS-RERA verification for Hyderabad without broker markups."
+icon: "https://raw.githubusercontent.com/DND711/Four-Corner/main/assets/images/logo.png"
+repository: "https://github.com/DND711/Four-Corner-MCP"
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties: {}
+  commandFunction: |-
+    (config) => ({
+      command: 'uvx',
+      args: ['--from', 'git+https://github.com/DND711/Four-Corner-MCP.git', 'four-corner']
+    })
