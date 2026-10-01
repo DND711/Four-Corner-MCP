@@ -304,34 +304,9 @@ def render_login_page(
       </div>
 
       <div>
-        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Phone Number (Optional for WhatsApp updates)</label>
-        <input type="tel" name="phone" placeholder="+91 98765 43210"
+        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Phone Number *</label>
+        <input type="tel" name="phone" required placeholder="+91 98765 43210"
           class="w-full bg-[#0B0F17] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition">
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Preferred Area</label>
-          <select name="micro_market_pref"
-            class="w-full bg-[#0B0F17] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition">
-            <option value="Kokapet">Kokapet</option>
-            <option value="Financial District">Financial District</option>
-            <option value="Tellapur">Tellapur</option>
-            <option value="Narsingi">Narsingi</option>
-            <option value="Gachibowli">Gachibowli</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Max Budget</label>
-          <select name="budget_max_cr"
-            class="w-full bg-[#0B0F17] border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition">
-            <option value="1.5">₹1.50 Cr</option>
-            <option value="2.0">₹2.00 Cr</option>
-            <option value="2.5">₹2.50 Cr</option>
-            <option value="3.5">₹3.50 Cr</option>
-            <option value="5.0">₹5.00+ Cr</option>
-          </select>
-        </div>
       </div>
 
       <div class="pt-2">
@@ -342,6 +317,7 @@ def render_login_page(
         </button>
       </div>
     </form>
+
 
     <div class="mt-5 text-center">
       <p class="text-[11px] text-slate-500">

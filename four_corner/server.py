@@ -1,11 +1,23 @@
 import os
 import sys
 import argparse
+import logging
 from typing import Optional, List, Dict, Any
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server.mcpserver import MCPServer
+
+# Configure Unbuffered Logging for Real-Time Render Logs
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stdout,
+    force=True,
+)
+logger = logging.getLogger("four_corner")
+sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, "reconfigure") else None
 
 from four_corner.config import SERVER_NAME
 from four_corner.db.database import Database
@@ -28,6 +40,7 @@ from four_corner.auth import (
 # Initialize MCP Server & Database
 server = MCPServer(SERVER_NAME)
 db = Database()
+
 
 
 # ==========================================
@@ -260,13 +273,11 @@ async def oauth_authorize_post(request: Request):
     """Process buyer registration, create user record, and redirect with auth code."""
     from starlette.responses import RedirectResponse
     form = await request.form()
-    
+
     name = str(form.get("name", "")).strip()
     email = str(form.get("email", "")).strip()
-    phone = str(form.get("phone", "")).strip() or None
-    micro_market = str(form.get("micro_market_pref", "Kokapet")).strip()
-    budget_raw = form.get("budget_max_cr")
-    budget_max_cr = float(budget_raw) if budget_raw else 2.0
+    phone = str(form.get("phone", "")).strip()
+
     
     client_id = str(form.get("client_id", "chatgpt-connector"))
     redirect_uri = str(form.get("redirect_uri", ""))
@@ -274,18 +285,23 @@ async def oauth_authorize_post(request: Request):
     code_challenge = str(form.get("code_challenge", "")).strip() or None
     code_challenge_method = str(form.get("code_challenge_method", "S256")).strip() or None
 
+    if not name:
+        return JSONResponse({"error": "name_required", "message": "Full name is required"}, status_code=400)
     if not email:
         return JSONResponse({"error": "email_required", "message": "Email address is required"}, status_code=400)
+    if not phone:
+        return JSONResponse({"error": "phone_required", "message": "Phone number is required"}, status_code=400)
+
+    logger.info(f"✅ Buyer Registered: {name} | Email: {email} | Phone: {phone}")
 
     # Save user into database
     user = get_or_create_user(
         db=db,
         email=email,
-        name=name or email.split("@")[0],
-        phone=phone,
-        micro_market_pref=micro_market,
-        budget_max_cr=budget_max_cr
+        name=name,
+        phone=phone
     )
+
 
     # Create authorization code with PKCE challenge
     code = create_authorization_code(
@@ -531,8 +547,17 @@ async def api_rera(request: Request) -> JSONResponse:
 
 from mcp.server.transport_security import TransportSecuritySettings
 
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Log all incoming HTTP and SSE requests to stdout for real-time visibility in Render."""
+    async def dispatch(self, request: Request, call_next):
+        client_ip = request.client.host if request.client else "unknown"
+        logger.info(f"👉 [{client_ip}] {request.method} {request.url.path}")
+        response = await call_next(request)
+        logger.info(f"👈 [{client_ip}] {request.method} {request.url.path} -> HTTP {response.status_code}")
+        return response
+
 def get_app():
-    """Build and configure the Starlette ASGI application with CORS and remote transport security enabled."""
+    """Build and configure the Starlette ASGI application with CORS, logging, and remote transport security enabled."""
     security = TransportSecuritySettings(
         enable_dns_rebinding_protection=False,
         allowed_hosts=["*"],
@@ -546,11 +571,11 @@ def get_app():
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    asgi_app.add_middleware(RequestLoggingMiddleware)
     return asgi_app
 
 
 app = get_app()
-
 
 
 # ==========================================
@@ -572,10 +597,12 @@ def main():
     # If PORT is explicitly set in environment or --sse is passed, run HTTP server
     if args.sse or os.getenv("PORT"):
         import uvicorn
-        print(f"🚀 Starting Four Corner Cloud Server on {args.host}:{args.port}")
-        print(f"   - Claude MCP SSE Endpoint: http://{args.host}:{args.port}/sse")
-        print(f"   - ChatGPT OpenAPI Spec:   http://{args.host}:{args.port}/openapi.json")
-        uvicorn.run(app, host=args.host, port=args.port)
+        logger.info(f"🚀 Four Corner Cloud Server listening on http://{args.host}:{args.port}")
+        logger.info(f"   • Claude / ChatGPT MCP SSE: http://{args.host}:{args.port}/sse")
+        logger.info(f"   • ChatGPT OpenAPI Schema:   http://{args.host}:{args.port}/openapi.json")
+        logger.info(f"   • OAuth 2.0 Authorize URL: http://{args.host}:{args.port}/oauth/authorize")
+        logger.info(f"   • Health Check Endpoint:    http://{args.host}:{args.port}/health")
+        uvicorn.run("four_corner.server:app", host=args.host, port=args.port, log_level="info", access_log=True)
     else:
         # Standard local MCP stdio mode
         server.run(transport="stdio")
@@ -583,4 +610,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

@@ -23,7 +23,10 @@ RUN python -m four_corner.db.seed_data
 
 # Expose port (Render, Railway, Fly.io provide $PORT dynamically)
 ENV PORT=8000
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONIOENCODING=UTF-8
 EXPOSE 8000
+
 
 # Start Starlette ASGI server supporting both Claude MCP (SSE) and ChatGPT Actions (REST)
 CMD ["python", "-m", "four_corner.server", "--sse"]
