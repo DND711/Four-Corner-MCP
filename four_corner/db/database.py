@@ -1,49 +1,229 @@
 """
 Database connection, initialization, and query engine for Four Corner.
+Supports both Supabase PostgreSQL (via DATABASE_URL) and local SQLite.
 """
 
 import json
+import os
+import re
 import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
 
 from four_corner.config import DEFAULT_DB_PATH, DB_DIR
 from four_corner.db.seed_data import PROJECTS_DATA
 
 
+class PostgresCursorWrapper:
+    """Adapts a psycopg2 cursor so it behaves consistently with sqlite3 cursor."""
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+        self._lastrowid = None
+
+    def execute(self, query: str, params: Any = None):
+        q = query.strip()
+        # Ignore SQLite PRAGMAs on PostgreSQL
+        if q.upper().startswith("PRAGMA"):
+            return self
+
+        # Adapt placeholders from ? to %s
+        adapted_q = q.replace("?", "%s")
+
+        # Adapt SQLite INSERT OR REPLACE for PostgreSQL
+        if "INSERT OR REPLACE INTO projects" in adapted_q:
+            adapted_q = adapted_q.replace(
+                "INSERT OR REPLACE INTO projects",
+                "INSERT INTO projects"
+            ) + """ ON CONFLICT (id) DO UPDATE SET 
+                name = EXCLUDED.name, 
+                developer = EXCLUDED.developer, 
+                rera_id = EXCLUDED.rera_id, 
+                micro_market = EXCLUDED.micro_market, 
+                promoter_legal_entity = EXCLUDED.promoter_legal_entity, 
+                sanctioning_authority = EXCLUDED.sanctioning_authority, 
+                approved_towers = EXCLUDED.approved_towers, 
+                registered_handover_date = EXCLUDED.registered_handover_date, 
+                handover_year = EXCLUDED.handover_year, 
+                status = EXCLUDED.status, 
+                escrow_compliant = EXCLUDED.escrow_compliant, 
+                litigations_reported = EXCLUDED.litigations_reported, 
+                quarterly_compliance_up_to_date = EXCLUDED.quarterly_compliance_up_to_date, 
+                total_acres = EXCLUDED.total_acres, 
+                clubhouse_sqft = EXCLUDED.clubhouse_sqft, 
+                open_space_pct = EXCLUDED.open_space_pct"""
+        elif "INSERT OR REPLACE INTO units" in adapted_q:
+            adapted_q = adapted_q.replace(
+                "INSERT OR REPLACE INTO units",
+                "INSERT INTO units"
+            ) + """ ON CONFLICT (id) DO UPDATE SET 
+                tower = EXCLUDED.tower, 
+                floor = EXCLUDED.floor, 
+                bhk = EXCLUDED.bhk, 
+                facing = EXCLUDED.facing, 
+                is_corner_unit = EXCLUDED.is_corner_unit, 
+                super_built_up_sqft = EXCLUDED.super_built_up_sqft, 
+                carpet_area_sqft = EXCLUDED.carpet_area_sqft, 
+                balcony_sqft = EXCLUDED.balcony_sqft, 
+                balcony_facing = EXCLUDED.balcony_facing, 
+                has_morning_sunlight = EXCLUDED.has_morning_sunlight, 
+                base_rate_per_sqft = EXCLUDED.base_rate_per_sqft, 
+                floor_rise_charges = EXCLUDED.floor_rise_charges, 
+                corner_premium_charges = EXCLUDED.corner_premium_charges, 
+                clubhouse_charges = EXCLUDED.clubhouse_charges, 
+                car_parking_slots = EXCLUDED.car_parking_slots, 
+                car_parking_charges = EXCLUDED.car_parking_charges, 
+                infra_charges = EXCLUDED.infra_charges, 
+                total_out_the_door_inr = EXCLUDED.total_out_the_door_inr, 
+                total_price_cr = EXCLUDED.total_price_cr"""
+        elif "INSERT OR REPLACE INTO user_saved_units" in adapted_q:
+            adapted_q = adapted_q.replace(
+                "INSERT OR REPLACE INTO user_saved_units",
+                "INSERT INTO user_saved_units"
+            ) + " ON CONFLICT (user_id, unit_id) DO UPDATE SET notes = EXCLUDED.notes, saved_at = CURRENT_TIMESTAMP"
+
+        # Capture lastrowid for user_inquiries or serial ID inserts
+        if "INSERT INTO user_inquiries" in adapted_q and "RETURNING" not in adapted_q.upper():
+            adapted_q += " RETURNING id"
+            if params is not None:
+                self._cursor.execute(adapted_q, params)
+            else:
+                self._cursor.execute(adapted_q)
+            res = self._cursor.fetchone()
+            if res:
+                self._lastrowid = res.get("id") if isinstance(res, dict) else res[0]
+            return self
+
+        if params is not None:
+            self._cursor.execute(adapted_q, params)
+        else:
+            self._cursor.execute(adapted_q)
+        return self
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return dict(row) if row is not None else None
+
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        return [dict(r) for r in rows]
+
+    @property
+    def lastrowid(self):
+        return self._lastrowid
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+
+class PostgresConnectionWrapper:
+    """Wraps a psycopg2 connection to mimic sqlite3 connection semantics."""
+
+    def __init__(self, raw_conn):
+        self._raw_conn = raw_conn
+
+    def cursor(self):
+        return PostgresCursorWrapper(self._raw_conn.cursor(cursor_factory=RealDictCursor))
+
+    def execute(self, query: str, params: Any = None):
+        cur = self.cursor()
+        cur.execute(query, params)
+        return cur
+
+    def commit(self):
+        self._raw_conn.commit()
+
+    def rollback(self):
+        self._raw_conn.rollback()
+
+    def close(self):
+        self._raw_conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            self.rollback()
+        else:
+            self.commit()
+        self.close()
+
+
 class Database:
-    def __init__(self, db_path: Optional[Path] = None):
-        self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self, db_path: Optional[Path] = None, database_url: Optional[str] = None):
+        self.database_url = database_url or os.getenv("DATABASE_URL")
+        self.is_postgres = False
+
+        if self.database_url:
+            # Normalize url if postgres:// is given by Render/Supabase
+            if self.database_url.startswith("postgres://"):
+                self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)
+            if PSYCOPG2_AVAILABLE:
+                self.is_postgres = True
+            else:
+                print("Warning: DATABASE_URL provided but psycopg2 is not installed. Falling back to SQLite.")
+
+        if not self.is_postgres:
+            self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
         self.init_database()
 
-    def get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.db_path))
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON;")
-        return conn
+    def get_connection(self):
+        if self.is_postgres:
+            raw_conn = psycopg2.connect(self.database_url)
+            return PostgresConnectionWrapper(raw_conn)
+        else:
+            conn = sqlite3.connect(str(self.db_path))
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA foreign_keys = ON;")
+            return conn
 
     def init_database(self) -> None:
-        schema_file = DB_DIR / "schema.sql"
-        with self.get_connection() as conn:
-            with open(schema_file, "r", encoding="utf-8") as f:
-                conn.executescript(f.read())
+        if self.is_postgres:
+            schema_file = DB_DIR / "schema_supabase.sql"
+            with self.get_connection() as conn:
+                with open(schema_file, "r", encoding="utf-8") as f:
+                    sql_script = f.read()
+                # Run statements
+                cur = conn.cursor()
+                cur.execute(sql_script)
+                conn.commit()
 
-            # Auto-migrate columns if table already existed
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA table_info(oauth_codes)")
-            cols = [c[1] for c in cursor.fetchall()]
-            if cols and "code_challenge" not in cols:
-                cursor.execute("ALTER TABLE oauth_codes ADD COLUMN code_challenge TEXT")
-            if cols and "code_challenge_method" not in cols:
-                cursor.execute("ALTER TABLE oauth_codes ADD COLUMN code_challenge_method TEXT")
-            conn.commit()
-            
-            # Ensure all verified inventory and latest seed data are synced
-            self.seed_database(conn)
+                # Seed data if table is currently empty
+                cur.execute("SELECT COUNT(*) as count FROM projects")
+                row = cur.fetchone()
+                count = row.get("count", 0) if row else 0
+                if count == 0:
+                    self.seed_database(conn)
+        else:
+            schema_file = DB_DIR / "schema.sql"
+            with self.get_connection() as conn:
+                with open(schema_file, "r", encoding="utf-8") as f:
+                    conn.executescript(f.read())
 
+                # Auto-migrate columns if table already existed
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA table_info(oauth_codes)")
+                cols = [c[1] for c in cursor.fetchall()]
+                if cols and "code_challenge" not in cols:
+                    cursor.execute("ALTER TABLE oauth_codes ADD COLUMN code_challenge TEXT")
+                if cols and "code_challenge_method" not in cols:
+                    cursor.execute("ALTER TABLE oauth_codes ADD COLUMN code_challenge_method TEXT")
+                conn.commit()
+                
+                # Ensure all verified inventory and latest seed data are synced
+                self.seed_database(conn)
 
-    def seed_database(self, conn: sqlite3.Connection) -> None:
+    def seed_database(self, conn) -> None:
         for prj in PROJECTS_DATA:
             conn.execute(
                 """
@@ -341,4 +521,3 @@ class Database:
                 (user_id,)
             )
             return [dict(r) for r in cursor.fetchall()]
-
