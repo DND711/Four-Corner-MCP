@@ -105,6 +105,8 @@ CREATE TABLE IF NOT EXISTS oauth_codes (
     user_id TEXT NOT NULL REFERENCES users(id),
     redirect_uri TEXT NOT NULL,
     scope TEXT,
+    code_challenge TEXT,
+    code_challenge_method TEXT,
     expires_at INTEGER NOT NULL
 );
 

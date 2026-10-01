@@ -218,7 +218,7 @@ def get_user_portfolio(buyer_email: str) -> Dict[str, Any]:
 @server.custom_route("/.well-known/openid-configuration", methods=["GET"])
 async def oauth_discovery(request: Request) -> JSONResponse:
     """RFC 8414 & OpenID Connect discovery metadata.
-    Enables ChatGPT to automatically configure Authorization and Token URLs."""
+    Enables ChatGPT to automatically configure Authorization, Token, and PKCE parameters."""
     base_url = str(request.base_url).rstrip("/")
     return JSONResponse({
         "issuer": base_url,
@@ -228,6 +228,7 @@ async def oauth_discovery(request: Request) -> JSONResponse:
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code", "refresh_token"],
         "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic", "none"],
+        "code_challenge_methods_supported": ["S256"],
         "scopes_supported": ["openid", "profile", "email", "real_estate:read", "real_estate:write"],
         "service_documentation": f"{base_url}/"
     })
@@ -235,14 +236,22 @@ async def oauth_discovery(request: Request) -> JSONResponse:
 
 @server.custom_route("/oauth/authorize", methods=["GET"])
 async def oauth_authorize_get(request: Request):
-    """Serve the branded Four Corner login and buyer registration page."""
+    """Serve the branded Four Corner login and buyer registration page with PKCE support."""
     from starlette.responses import HTMLResponse
     qp = request.query_params
     client_id = qp.get("client_id", "chatgpt-connector")
     redirect_uri = qp.get("redirect_uri", "")
     state = qp.get("state", "")
+    code_challenge = qp.get("code_challenge", "")
+    code_challenge_method = qp.get("code_challenge_method", "S256")
 
-    html = render_login_page(client_id=client_id, redirect_uri=redirect_uri, state=state)
+    html = render_login_page(
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        state=state,
+        code_challenge=code_challenge,
+        code_challenge_method=code_challenge_method
+    )
     return HTMLResponse(html)
 
 
@@ -262,6 +271,8 @@ async def oauth_authorize_post(request: Request):
     client_id = str(form.get("client_id", "chatgpt-connector"))
     redirect_uri = str(form.get("redirect_uri", ""))
     state = str(form.get("state", ""))
+    code_challenge = str(form.get("code_challenge", "")).strip() or None
+    code_challenge_method = str(form.get("code_challenge_method", "S256")).strip() or None
 
     if not email:
         return JSONResponse({"error": "email_required", "message": "Email address is required"}, status_code=400)
@@ -276,12 +287,14 @@ async def oauth_authorize_post(request: Request):
         budget_max_cr=budget_max_cr
     )
 
-    # Create authorization code
+    # Create authorization code with PKCE challenge
     code = create_authorization_code(
         db=db,
         client_id=client_id,
         user_id=user["id"],
-        redirect_uri=redirect_uri
+        redirect_uri=redirect_uri,
+        code_challenge=code_challenge,
+        code_challenge_method=code_challenge_method
     )
 
     # Redirect back to ChatGPT
@@ -295,10 +308,11 @@ async def oauth_authorize_post(request: Request):
 
 @server.custom_route("/oauth/token", methods=["POST"])
 async def oauth_token(request: Request) -> JSONResponse:
-    """OAuth 2.0 token endpoint: exchange authorization code for access token."""
+    """OAuth 2.0 token endpoint: exchange authorization code for access token with PKCE verification."""
     code = None
     client_id = None
     client_secret = None
+    code_verifier = None
 
     # Try parsing form data or json
     content_type = request.headers.get("content-type", "")
@@ -308,6 +322,7 @@ async def oauth_token(request: Request) -> JSONResponse:
             code = body.get("code")
             client_id = body.get("client_id")
             client_secret = body.get("client_secret")
+            code_verifier = body.get("code_verifier")
         except Exception:
             pass
     else:
@@ -315,6 +330,7 @@ async def oauth_token(request: Request) -> JSONResponse:
         code = form.get("code")
         client_id = form.get("client_id")
         client_secret = form.get("client_secret")
+        code_verifier = form.get("code_verifier")
 
     if not code:
         return JSONResponse({"error": "invalid_request", "error_description": "Missing code parameter"}, status_code=400)
@@ -323,13 +339,15 @@ async def oauth_token(request: Request) -> JSONResponse:
         db=db,
         code=str(code),
         client_id=str(client_id) if client_id else None,
-        client_secret=str(client_secret) if client_secret else None
+        client_secret=str(client_secret) if client_secret else None,
+        code_verifier=str(code_verifier) if code_verifier else None
     )
 
     if err or not token_payload:
         return JSONResponse({"error": "invalid_grant", "error_description": err or "Failed to exchange code"}, status_code=400)
 
     return JSONResponse(token_payload)
+
 
 
 @server.custom_route("/oauth/userinfo", methods=["GET"])

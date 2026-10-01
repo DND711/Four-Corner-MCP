@@ -60,24 +60,35 @@ def get_or_create_user(
         return dict(cursor.fetchone())
 
 
+def verify_pkce_s256(code_verifier: str, code_challenge: str) -> bool:
+    """Verify PKCE S256 challenge according to RFC 7636."""
+    import hashlib
+    import base64
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    computed_challenge = base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+    return computed_challenge == code_challenge.rstrip("=")
+
+
 def create_authorization_code(
     db: Database,
     client_id: str,
     user_id: str,
     redirect_uri: str,
-    scope: str = "openid profile email"
+    scope: str = "openid profile email",
+    code_challenge: Optional[str] = None,
+    code_challenge_method: Optional[str] = None
 ) -> str:
-    """Generate and store an OAuth 2.0 authorization code."""
+    """Generate and store an OAuth 2.0 authorization code with optional PKCE challenge."""
     code = f"fc_code_{secrets.token_urlsafe(32)}"
     expires_at = int(time.time()) + CODE_LIFETIME_SECONDS
 
     with db.get_connection() as conn:
         conn.execute(
             """
-            INSERT INTO oauth_codes (code, client_id, user_id, redirect_uri, scope, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO oauth_codes (code, client_id, user_id, redirect_uri, scope, code_challenge, code_challenge_method, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (code, client_id, user_id, redirect_uri, scope, expires_at)
+            (code, client_id, user_id, redirect_uri, scope, code_challenge, code_challenge_method, expires_at)
         )
         conn.commit()
     return code
@@ -88,9 +99,10 @@ def exchange_code_for_token(
     code: str,
     client_id: Optional[str] = None,
     client_secret: Optional[str] = None,
-    redirect_uri: Optional[str] = None
+    redirect_uri: Optional[str] = None,
+    code_verifier: Optional[str] = None
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    """Exchange an authorization code for an OAuth access token."""
+    """Exchange an authorization code for an OAuth access token, verifying PKCE if required."""
     now = int(time.time())
     with db.get_connection() as conn:
         cursor = conn.cursor()
@@ -104,6 +116,18 @@ def exchange_code_for_token(
             cursor.execute("DELETE FROM oauth_codes WHERE code = ?", (code,))
             conn.commit()
             return None, "Authorization code has expired"
+
+        # PKCE S256 verification
+        stored_challenge = row["code_challenge"]
+        stored_method = row["code_challenge_method"] or "S256"
+
+        if stored_challenge:
+            if not code_verifier:
+                return None, "Missing PKCE code_verifier"
+            if stored_method.upper() != "S256":
+                return None, f"Unsupported PKCE method: {stored_method}"
+            if not verify_pkce_s256(code_verifier, stored_challenge):
+                return None, "Invalid PKCE code_verifier"
 
         user_id = row["user_id"]
         scope = row["scope"] or "openid profile email"
@@ -135,6 +159,7 @@ def exchange_code_for_token(
             "scope": scope,
             "user": dict(user_row) if user_row else None
         }, None
+
 
 
 def validate_access_token(db: Database, token: str) -> Optional[Dict[str, Any]]:
@@ -202,7 +227,13 @@ def submit_developer_inquiry(
     }
 
 
-def render_login_page(client_id: str, redirect_uri: str, state: Optional[str] = None) -> str:
+def render_login_page(
+    client_id: str,
+    redirect_uri: str,
+    state: Optional[str] = None,
+    code_challenge: Optional[str] = None,
+    code_challenge_method: Optional[str] = None
+) -> str:
     """Render a premium branded OAuth login & registration HTML page for Four Corner."""
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -256,6 +287,9 @@ def render_login_page(client_id: str, redirect_uri: str, state: Optional[str] = 
       <input type="hidden" name="client_id" value="{client_id}">
       <input type="hidden" name="redirect_uri" value="{redirect_uri}">
       <input type="hidden" name="state" value="{state or ''}">
+      <input type="hidden" name="code_challenge" value="{code_challenge or ''}">
+      <input type="hidden" name="code_challenge_method" value="{code_challenge_method or ''}">
+
 
       <div>
         <label class="block text-xs font-semibold text-slate-300 mb-1.5">Full Name *</label>

@@ -28,13 +28,23 @@ class Database:
         with self.get_connection() as conn:
             with open(schema_file, "r", encoding="utf-8") as f:
                 conn.executescript(f.read())
+
+            # Auto-migrate columns if table already existed
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(oauth_codes)")
+            cols = [c[1] for c in cursor.fetchall()]
+            if cols and "code_challenge" not in cols:
+                cursor.execute("ALTER TABLE oauth_codes ADD COLUMN code_challenge TEXT")
+            if cols and "code_challenge_method" not in cols:
+                cursor.execute("ALTER TABLE oauth_codes ADD COLUMN code_challenge_method TEXT")
+            conn.commit()
             
             # Check if seeded
-            cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM projects")
             count = cursor.fetchone()[0]
             if count == 0:
                 self.seed_database(conn)
+
 
     def seed_database(self, conn: sqlite3.Connection) -> None:
         for prj in PROJECTS_DATA:
