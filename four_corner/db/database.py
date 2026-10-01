@@ -284,8 +284,12 @@ class Database:
             params = [project_id_or_name.strip(), f"%{project_id_or_name.strip()}%"]
 
             if destination_hub:
-                query += " AND LOWER(c.destination_hub) LIKE LOWER(?)"
-                params.append(f"%{destination_hub.strip()}%")
+                dest_clean = destination_hub.strip().lower()
+                if "adp" in dest_clean:
+                    query += " AND (LOWER(c.destination_hub) LIKE '%adp%' OR LOWER(c.destination_hub) LIKE '%financial district%')"
+                else:
+                    query += " AND LOWER(c.destination_hub) LIKE ?"
+                    params.append(f"%{dest_clean}%")
 
             cursor.execute(query, params)
             rows = cursor.fetchall()

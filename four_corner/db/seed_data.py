@@ -129,7 +129,7 @@ PROJECTS_DATA = [
             }
         ],
         "commutes": [
-            ("Financial District", 8.2, 14, 28, 34, "Via Tellapur-Gopanpally 100ft Road", ["Gopanpally X Road", "Wipro Junction"], "Moderate evening congestion near Wipro Circle"),
+            ("Financial District / ADP Gachibowli", 8.2, 14, 28, 34, "Via Tellapur-Gopanpally 100ft Road", ["Gopanpally X Road", "Wipro Junction", "ADP Boulevard"], "Direct 25-min peak commute to ADP Gachibowli"),
             ("HITEC City", 14.5, 22, 42, 48, "Via Gachibowli-Miyapur Road", ["Gachibowli Flyover", "Cyber Towers"], "Heavy rush-hour traffic between 9:00 - 10:30 AM"),
             ("Kokapet SEZ", 9.8, 12, 22, 26, "Via ORR Service Road / Kollur Exit", ["ORR Exit 2"], "Smooth continuous corridor with minimal traffic lights"),
             ("RGIA Airport", 34.0, 32, 42, 45, "Via Outer Ring Road (ORR)", ["TSPA Junction", "Shamshabad Toll"], "Express highway with signal-free transit"),
@@ -182,7 +182,7 @@ PROJECTS_DATA = [
             }
         ],
         "commutes": [
-            ("Financial District", 4.2, 7, 12, 15, "Via Kokapet Main Road", ["Kokapet Rotary"], "Fast direct commute under 15 minutes"),
+            ("Financial District / ADP Gachibowli", 4.2, 7, 12, 15, "Via Kokapet Main Road", ["Kokapet Rotary", "GAR InfoSys", "ADP Junction"], "Fast direct commute under 15 minutes to ADP"),
             ("HITEC City", 10.5, 16, 28, 35, "Via ORR & Gachibowli Flyover", ["IIIT Junction"], "Signal-free until Gachibowli junction"),
             ("Kokapet SEZ", 1.8, 3, 5, 6, "Direct Golden Mile Corridor", ["Neopolis Boulevard"], "Immediate neighborhood access"),
             ("RGIA Airport", 28.5, 24, 30, 32, "Via ORR Exit 1", ["Rajendranagar Exit"], "Direct non-stop ORR connection"),
@@ -285,7 +285,7 @@ PROJECTS_DATA = [
             }
         ],
         "commutes": [
-            ("Financial District", 5.5, 9, 16, 20, "Via Narsingi-Puppalguda Main Road", ["Narsingi Rotary"], "Short 15-min rush-hour transit to Waverock"),
+            ("Financial District / ADP Gachibowli", 5.5, 9, 16, 20, "Via Narsingi-Puppalguda Main Road", ["Narsingi Rotary", "Waverock Circle", "ADP Office"], "Short 15-min rush-hour transit to ADP / Waverock"),
             ("HITEC City", 11.0, 18, 32, 38, "Via ORR & Durgam Cheruvu Cable Bridge", ["Bio-Diversity Junction"], "Scenic and rapid route via Cable Bridge"),
             ("Kokapet SEZ", 3.2, 5, 8, 10, "Via Gandipet Road", ["Ocean Park Junction"], "Quick bypass with zero red lights"),
             ("RGIA Airport", 26.0, 22, 28, 30, "Via ORR Exit 18", ["Appa Junction"], "One of the closest residential hubs to Airport via ORR"),
@@ -418,7 +418,7 @@ PROJECTS_DATA = [
             }
         ],
         "commutes": [
-            ("Financial District", 3.8, 6, 10, 12, "Via Kokapet Golden Mile Road", ["GAR InfoSys"], "Rapid corporate access"),
+            ("Financial District / ADP Gachibowli", 3.8, 6, 10, 12, "Via Kokapet Golden Mile Road", ["GAR InfoSys", "ADP Boulevard"], "Rapid corporate access to ADP"),
             ("HITEC City", 10.0, 15, 26, 32, "Via ORR Service & Gachibowli", ["Durgam Cheruvu"], "Under 30 mins even during rush hour"),
             ("Kokapet SEZ", 0.8, 2, 3, 4, "Direct Frontage Road", ["Neopolis Circle"], "Immediate walking proximity"),
             ("RGIA Airport", 27.5, 22, 28, 30, "Via ORR Kokapet Interchange", ["Shamshabad Expressway"], "Direct ORR ramp access"),
@@ -471,7 +471,7 @@ PROJECTS_DATA = [
             }
         ],
         "commutes": [
-            ("Financial District", 8.5, 14, 26, 32, "Via Tellapur Tech Corridor Road", ["Tellapur Junction"], "Expanding 6-lane road under development"),
+            ("Financial District / ADP Gachibowli", 8.5, 14, 26, 32, "Via Tellapur Tech Corridor Road", ["Tellapur Junction", "ADP Boulevard"], "Expanding 6-lane road to ADP and Financial District"),
             ("HITEC City", 15.0, 24, 44, 50, "Via Gachibowli Corridor", ["Gachibowli Junction"], "Moderate morning commute"),
             ("Kokapet SEZ", 9.0, 12, 20, 24, "Via Kollur ORR Link", ["ORR Exit 2"], "Smooth outer transit ring"),
             ("RGIA Airport", 35.0, 32, 40, 45, "Via ORR Expressway", ["Airport Road"], "Full highway transit"),
