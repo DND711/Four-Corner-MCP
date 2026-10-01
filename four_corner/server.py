@@ -6,7 +6,6 @@ from typing import Optional, List, Dict, Any
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 from mcp.server.mcpserver import MCPServer
 
 # Configure Unbuffered Logging for Real-Time Render Logs
@@ -547,14 +546,32 @@ async def api_rera(request: Request) -> JSONResponse:
 
 from mcp.server.transport_security import TransportSecuritySettings
 
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log all incoming HTTP and SSE requests to stdout for real-time visibility in Render."""
-    async def dispatch(self, request: Request, call_next):
-        client_ip = request.client.host if request.client else "unknown"
-        logger.info(f"👉 [{client_ip}] {request.method} {request.url.path}")
-        response = await call_next(request)
-        logger.info(f"👈 [{client_ip}] {request.method} {request.url.path} -> HTTP {response.status_code}")
-        return response
+class ASGIRequestLogger:
+    """Pure ASGI middleware to log incoming HTTP/SSE requests without BaseHTTPMiddleware streaming assertion errors."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            client = scope.get("client")
+            client_ip = client[0] if client else "unknown"
+            method = scope.get("method", "HTTP")
+            path = scope.get("path", "")
+            query = scope.get("query_string", b"").decode("utf-8", errors="ignore")
+            target = f"{path}?{query}" if query else path
+
+            logger.info(f"👉 [{client_ip}] {method} {target}")
+
+            async def logging_send(message):
+                if message["type"] == "http.response.start":
+                    status = message.get("status", 200)
+                    logger.info(f"👈 [{client_ip}] {method} {path} -> HTTP {status}")
+                await send(message)
+
+            await self.app(scope, receive, logging_send)
+        else:
+            await self.app(scope, receive, send)
 
 def get_app():
     """Build and configure the Starlette ASGI application with CORS, logging, and remote transport security enabled."""
@@ -571,8 +588,7 @@ def get_app():
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    asgi_app.add_middleware(RequestLoggingMiddleware)
-    return asgi_app
+    return ASGIRequestLogger(asgi_app)
 
 
 app = get_app()

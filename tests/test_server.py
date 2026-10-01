@@ -29,6 +29,23 @@ def test_search_properties_budget_integrity(test_db):
         assert prop["total_price_cr"] <= 1.5, f"Property {prop['unit_id']} price {prop['total_price_cr']} exceeds 1.5 Cr!"
 
 
+def test_search_properties_under_1_2_cr(test_db):
+    """Test searching for verified developer properties under 1.2 Cr in Financial District and across West Hyderabad."""
+    # Financial District under 1.2 Cr
+    fd_res = search_properties(micro_market="Financial District", max_budget_cr=1.2, min_budget_cr=0.6)
+    assert fd_res["status"] == "success"
+    assert fd_res["matched_count"] >= 1
+    assert any(p["micro_market"] == "Financial District" and p["total_price_cr"] <= 1.2 for p in fd_res["properties"])
+
+    # 3 BHK under 1.2 Cr
+    bhk3_res = search_properties(bhk=3.0, max_budget_cr=1.2)
+    assert bhk3_res["status"] == "success"
+    assert bhk3_res["matched_count"] >= 3
+    for p in bhk3_res["properties"]:
+        assert p["total_price_cr"] <= 1.2
+        assert p["bhk"] >= 3.0
+
+
 def test_search_properties_micro_market(test_db):
     """Test filtering by micro-market."""
     res = search_properties(micro_market="Kokapet")

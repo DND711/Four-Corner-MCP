@@ -13,7 +13,7 @@ from four_corner.db.seed_data import PROJECTS_DATA
 
 class Database:
     def __init__(self, db_path: Optional[Path] = None):
-        self.db_path = db_path or DEFAULT_DB_PATH
+        self.db_path = Path(db_path) if db_path else DEFAULT_DB_PATH
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.init_database()
 
@@ -39,11 +39,8 @@ class Database:
                 cursor.execute("ALTER TABLE oauth_codes ADD COLUMN code_challenge_method TEXT")
             conn.commit()
             
-            # Check if seeded
-            cursor.execute("SELECT COUNT(*) FROM projects")
-            count = cursor.fetchone()[0]
-            if count == 0:
-                self.seed_database(conn)
+            # Ensure all verified inventory and latest seed data are synced
+            self.seed_database(conn)
 
 
     def seed_database(self, conn: sqlite3.Connection) -> None:
@@ -101,6 +98,7 @@ class Database:
                 )
 
                 # Insert rooms
+                conn.execute("DELETE FROM unit_rooms WHERE unit_id = ?", (u["id"],))
                 for room in u.get("rooms", []):
                     conn.execute(
                         """
@@ -111,6 +109,7 @@ class Database:
                     )
 
                 # Insert balconies
+                conn.execute("DELETE FROM unit_balconies WHERE unit_id = ?", (u["id"],))
                 for balc in u.get("balconies", []):
                     conn.execute(
                         """
@@ -121,6 +120,7 @@ class Database:
                     )
 
             # Insert commutes
+            conn.execute("DELETE FROM commute_corridors WHERE project_id = ?", (prj["id"],))
             for c in prj.get("commutes", []):
                 conn.execute(
                     """
