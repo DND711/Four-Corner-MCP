@@ -21,6 +21,34 @@ from four_corner.config import DEFAULT_DB_PATH, DB_DIR
 from four_corner.db.seed_data import PROJECTS_DATA
 
 
+class RowDict(dict):
+    """A dictionary subclass that also supports integer indexing like sqlite3.Row."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._values = list(self.values())
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            try:
+                return self._values[key]
+            except IndexError:
+                raise IndexError(f"Tuple index out of range: {key}")
+        return super().__getitem__(key)
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        self._values = list(self.values())
+
+    def get(self, key, default=None):
+        if isinstance(key, int):
+            try:
+                return self._values[key]
+            except IndexError:
+                return default
+        return super().get(key, default)
+
+
 class PostgresCursorWrapper:
     """Adapts a psycopg2 cursor so it behaves consistently with sqlite3 cursor."""
 
@@ -120,7 +148,7 @@ class PostgresCursorWrapper:
                 d[k] = v.isoformat()
             elif isinstance(v, Decimal):
                 d[k] = float(v)
-        return d
+        return RowDict(d)
 
     def fetchone(self):
         row = self._cursor.fetchone()

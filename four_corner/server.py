@@ -872,29 +872,34 @@ async def analytics_overview(request: Request) -> JSONResponse:
         
         # Total & Verified Projects
         c.execute("SELECT count(*) FROM projects")
-        total_projects = c.fetchone()[0] or 0
+        r = c.fetchone()
+        total_projects = (r[0] if r else 0) or 0
         
         c.execute("SELECT count(*) FROM projects WHERE verification_status = 'Verified'")
-        verified_projects = c.fetchone()[0] or 0
+        r = c.fetchone()
+        verified_projects = (r[0] if r else 0) or 0
         
         pending_verification = max(0, total_projects - verified_projects)
 
         # Total Units & Total Out The Door Inventory
-        c.execute("SELECT count(*), coalesce(sum(total_price_cr), 0) FROM units")
+        c.execute("SELECT count(*), coalesce(sum(total_price_cr), 0.0) FROM units")
         unit_row = c.fetchone()
-        total_units = unit_row[0] or 0
-        total_inventory_val_cr = round(unit_row[1] or 0, 2)
+        total_units = (unit_row[0] if unit_row else 0) or 0
+        total_inventory_val_cr = round((unit_row[1] if unit_row else 0) or 0, 2)
 
         # Search Events Metrics
         c.execute("SELECT count(*) FROM search_events")
-        total_searches = c.fetchone()[0] or 0
+        r = c.fetchone()
+        total_searches = (r[0] if r else 0) or 0
 
         # Unique Tracked Buyers
         c.execute("SELECT count(*) FROM users")
-        total_registered_users = c.fetchone()[0] or 0
+        r = c.fetchone()
+        total_registered_users = (r[0] if r else 0) or 0
 
         c.execute("SELECT count(DISTINCT user_id) FROM search_events WHERE user_id IS NOT NULL")
-        active_search_users = c.fetchone()[0] or 0
+        r = c.fetchone()
+        active_search_users = (r[0] if r else 0) or 0
 
         # Micro Market Demand Breakdown
         c.execute("""
@@ -910,17 +915,17 @@ async def analytics_overview(request: Request) -> JSONResponse:
         # Budget Tier Distribution
         c.execute("""
             SELECT 
-                SUM(CASE WHEN max_budget_cr <= 1.5 THEN 1 ELSE 0 END) as tier_1,
-                SUM(CASE WHEN max_budget_cr > 1.5 AND max_budget_cr <= 2.5 THEN 1 ELSE 0 END) as tier_2,
-                SUM(CASE WHEN max_budget_cr > 2.5 AND max_budget_cr <= 4.0 THEN 1 ELSE 0 END) as tier_3,
-                SUM(CASE WHEN max_budget_cr > 4.0 THEN 1 ELSE 0 END) as tier_4
+                COALESCE(SUM(CASE WHEN max_budget_cr <= 1.5 THEN 1 ELSE 0 END), 0) as tier_1,
+                COALESCE(SUM(CASE WHEN max_budget_cr > 1.5 AND max_budget_cr <= 2.5 THEN 1 ELSE 0 END), 0) as tier_2,
+                COALESCE(SUM(CASE WHEN max_budget_cr > 2.5 AND max_budget_cr <= 4.0 THEN 1 ELSE 0 END), 0) as tier_3,
+                COALESCE(SUM(CASE WHEN max_budget_cr > 4.0 THEN 1 ELSE 0 END), 0) as tier_4
             FROM search_events
         """)
         budget_row = c.fetchone()
-        tier_1 = budget_row[0] or 0
-        tier_2 = budget_row[1] or 0
-        tier_3 = budget_row[2] or 0
-        tier_4 = budget_row[3] or 0
+        tier_1 = (budget_row[0] if budget_row else 0) or 0
+        tier_2 = (budget_row[1] if budget_row else 0) or 0
+        tier_3 = (budget_row[2] if budget_row else 0) or 0
+        tier_4 = (budget_row[3] if budget_row else 0) or 0
         budget_distribution = [
             {"tier": "Under ₹1.5 Cr", "count": tier_1, "pct": round((tier_1 / max(1, total_searches)) * 100, 1)},
             {"tier": "₹1.5 - ₹2.5 Cr", "count": tier_2, "pct": round((tier_2 / max(1, total_searches)) * 100, 1)},
@@ -934,7 +939,8 @@ async def analytics_overview(request: Request) -> JSONResponse:
 
         for p in all_projs:
             c.execute("SELECT count(*) FROM search_events WHERE project_names_returned LIKE '%' || ? || '%'", (p["name"],))
-            p["search_impressions"] = c.fetchone()[0] or 0
+            r = c.fetchone()
+            p["search_impressions"] = (r[0] if r else 0) or 0
 
         all_projs.sort(key=lambda x: x["search_impressions"], reverse=True)
 
@@ -982,15 +988,15 @@ async def analytics_projects(request: Request) -> JSONResponse:
             # Count appearances in search events
             c.execute("""
                 SELECT count(*), 
-                       SUM(corner_only), 
-                       SUM(morning_sunlight_only)
+                       COALESCE(SUM(CASE WHEN CAST(corner_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0), 
+                       COALESCE(SUM(CASE WHEN CAST(morning_sunlight_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0)
                 FROM search_events 
                 WHERE project_names_returned LIKE '%' || ? || '%'
             """, (p["name"],))
             s_row = c.fetchone()
-            impressions = s_row[0] or 0
-            corner_queries = s_row[1] or 0
-            morning_queries = s_row[2] or 0
+            impressions = (s_row[0] if s_row else 0) or 0
+            corner_queries = (s_row[1] if s_row else 0) or 0
+            morning_queries = (s_row[2] if s_row else 0) or 0
             p["search_impressions"] = impressions
 
             # Context & keywords that caused this project to be shown
@@ -1067,12 +1073,18 @@ async def analytics_search_intelligence(request: Request) -> JSONResponse:
 
         # Filter demand statistics
         c.execute("SELECT count(*) FROM search_events")
-        total_searches = c.fetchone()[0] or 1
+        r = c.fetchone()
+        total_searches = max(1, (r[0] if r else 0) or 0)
 
-        c.execute("SELECT sum(corner_only), sum(morning_sunlight_only) FROM search_events")
+        c.execute("""
+            SELECT 
+                COALESCE(SUM(CASE WHEN CAST(corner_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0), 
+                COALESCE(SUM(CASE WHEN CAST(morning_sunlight_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0) 
+            FROM search_events
+        """)
         flags_row = c.fetchone()
-        corner_count = flags_row[0] or 0
-        morning_count = flags_row[1] or 0
+        corner_count = (flags_row[0] if flags_row else 0) or 0
+        morning_count = (flags_row[1] if flags_row else 0) or 0
 
         # Facing preference breakdown
         c.execute("""
@@ -1189,22 +1201,26 @@ async def analytics_audience(request: Request) -> JSONResponse:
             SELECT count(DISTINCT COALESCE(user_id, id)) FROM search_events
             WHERE micro_market IN ('Financial District', 'Tellapur', 'Nanakramguda', 'Gachibowli')
         """)
-        seg1_count = c.fetchone()[0] or 0
+        r = c.fetchone()
+        seg1_count = (r[0] if r else 0) or 0
 
         c.execute("""
             SELECT count(DISTINCT COALESCE(user_id, id)) FROM search_events
             WHERE (max_budget_cr >= 3.5 OR micro_market IN ('Kokapet', 'Gandipet'))
         """)
-        seg2_count = c.fetchone()[0] or 0
+        r = c.fetchone()
+        seg2_count = (r[0] if r else 0) or 0
 
         c.execute("""
             SELECT count(DISTINCT COALESCE(user_id, id)) FROM search_events
             WHERE micro_market IN ('Narsingi', 'Kollur', 'Nallagandla')
         """)
-        seg3_count = c.fetchone()[0] or 0
+        r = c.fetchone()
+        seg3_count = (r[0] if r else 0) or 0
 
         c.execute("SELECT count(DISTINCT COALESCE(user_id, id)) FROM search_events")
-        total_unique_searches = c.fetchone()[0] or 0
+        r = c.fetchone()
+        total_unique_searches = (r[0] if r else 0) or 0
         total_audience_reach = max(len(enriched_buyers), total_unique_searches, seg1_count + seg2_count + seg3_count, 1)
 
     campaign_clusters = [
@@ -1296,7 +1312,7 @@ async def get_project_detail(request: Request) -> JSONResponse:
         c.execute("""
             SELECT id, tower, floor, bhk, facing, is_corner_unit, super_built_up_sqft,
                    carpet_area_sqft, has_morning_sunlight, base_rate_per_sqft, total_price_cr,
-                   ROUND((carpet_area_sqft * 100.0) / super_built_up_sqft, 1) as carpet_efficiency
+                   ROUND(CAST((carpet_area_sqft * 100.0) / super_built_up_sqft AS numeric), 1) as carpet_efficiency
             FROM units
             WHERE project_id = ?
             ORDER BY bhk, floor
@@ -1304,7 +1320,8 @@ async def get_project_detail(request: Request) -> JSONResponse:
         project["units"] = [dict(r) for r in c.fetchall()]
 
         c.execute("SELECT count(*) FROM search_events WHERE project_names_returned LIKE '%' || ? || '%'", (project["name"],))
-        project["search_impressions"] = c.fetchone()[0] or 0
+        r = c.fetchone()
+        project["search_impressions"] = (r[0] if r else 0) or 0
 
         c.execute("""
             SELECT se.timestamp, se.micro_market, se.bhk, se.facing, se.min_budget_cr, se.max_budget_cr,
@@ -1445,20 +1462,22 @@ async def analytics_trends(request: Request) -> JSONResponse:
     except (ValueError, TypeError):
         days = 7
 
+    from datetime import date, timedelta
+    today = date.today()
+    cutoff_date = (today - timedelta(days=days)).isoformat()
+
     with db.get_connection() as conn:
         c = conn.cursor()
         c.execute("""
-            SELECT DATE(timestamp) as date, COUNT(*) as searches
+            SELECT substr(CAST(timestamp AS TEXT), 1, 10) as date, COUNT(*) as searches
             FROM search_events
-            WHERE timestamp >= DATE('now', ? || ' days')
-            GROUP BY DATE(timestamp)
+            WHERE timestamp >= ?
+            GROUP BY substr(CAST(timestamp AS TEXT), 1, 10)
             ORDER BY date ASC
-        """, (f"-{days}",))
+        """, (cutoff_date,))
         raw = [dict(r) for r in c.fetchall()]
 
     # Fill in missing days with 0
-    from datetime import date, timedelta
-    today = date.today()
     day_map = {r["date"]: r["searches"] for r in raw}
     result = []
     for i in range(days, 0, -1):
