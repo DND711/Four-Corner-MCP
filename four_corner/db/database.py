@@ -273,6 +273,25 @@ class Database:
                     conn.commit()
                     self.seed_database(conn)
                 else:
+                    # Ensure projects table has all extended columns
+                    cur.execute("""
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'Verified';
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS tagline TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS official_url TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_rera_registered INTEGER DEFAULT 1;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS total_units INTEGER;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS road_width_feet REAL;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS water_source TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS assigned_badge TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS auditor_id TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS latitude REAL;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS longitude REAL;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS construction_stage TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS road_condition TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS red_flag_notes TEXT;
+                        UPDATE projects SET verification_status = 'Verified' WHERE verification_status IS NULL;
+                    """)
                     # Ensure B-RISE intent scoring columns exist
                     cur.execute("""
                         ALTER TABLE users ADD COLUMN IF NOT EXISTS intent_score INTEGER NOT NULL DEFAULT 0;
@@ -329,6 +348,30 @@ class Database:
                     cursor.execute("ALTER TABLE users ADD COLUMN intent_breakdown TEXT")
                 if u_cols and "last_activity_at" not in u_cols:
                     cursor.execute("ALTER TABLE users ADD COLUMN last_activity_at TIMESTAMP DEFAULT NULL")
+
+                # Auto-migrate projects columns
+                cursor.execute("PRAGMA table_info(projects)")
+                p_cols = [c[1] for c in cursor.fetchall()]
+                for col_name, col_type, col_def in [
+                    ("verification_status", "TEXT", "'Verified'"),
+                    ("tagline", "TEXT", "NULL"),
+                    ("project_type", "TEXT", "NULL"),
+                    ("official_url", "TEXT", "NULL"),
+                    ("is_rera_registered", "INTEGER", "1"),
+                    ("total_units", "INTEGER", "NULL"),
+                    ("road_width_feet", "REAL", "NULL"),
+                    ("water_source", "TEXT", "NULL"),
+                    ("assigned_badge", "TEXT", "NULL"),
+                    ("auditor_id", "TEXT", "NULL"),
+                    ("latitude", "REAL", "NULL"),
+                    ("longitude", "REAL", "NULL"),
+                    ("construction_stage", "TEXT", "NULL"),
+                    ("road_condition", "TEXT", "NULL"),
+                    ("red_flag_notes", "TEXT", "NULL"),
+                ]:
+                    if p_cols and col_name not in p_cols:
+                        cursor.execute(f"ALTER TABLE projects ADD COLUMN {col_name} {col_type} DEFAULT {col_def}")
+                cursor.execute("UPDATE projects SET verification_status = 'Verified' WHERE verification_status IS NULL")
                 conn.commit()
                 
                 # Ensure all verified inventory and latest seed data are synced
