@@ -252,6 +252,28 @@ class Database:
                         ALTER TABLE users ADD COLUMN IF NOT EXISTS intent_breakdown TEXT;
                         ALTER TABLE users ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
                     """)
+                    # Ensure search_events table exists
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS search_events (
+                            id TEXT PRIMARY KEY,
+                            user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            micro_market TEXT,
+                            max_budget_cr REAL,
+                            min_budget_cr REAL,
+                            bhk REAL,
+                            facing TEXT,
+                            corner_only INTEGER DEFAULT 0,
+                            morning_sunlight_only INTEGER DEFAULT 0,
+                            ready_by_year INTEGER,
+                            min_carpet_sqft INTEGER,
+                            results_count INTEGER DEFAULT 0,
+                            unit_ids_returned TEXT DEFAULT '',
+                            project_names_returned TEXT DEFAULT ''
+                        );
+                        CREATE INDEX IF NOT EXISTS idx_search_events_user ON search_events(user_id);
+                        CREATE INDEX IF NOT EXISTS idx_search_events_time ON search_events(timestamp);
+                    """)
                     conn.commit()
         else:
             schema_file = DB_DIR / "schema.sql"

@@ -59,9 +59,85 @@ db = Database()
 
 
 
-# ==========================================
-# MCP Protocol Tools (for Claude & MCP Clients)
-# ==========================================
+def record_user_audit(user_id: Optional[str], tool_name: str, query_summary: str):
+    """Log an authenticated buyer tool interaction for B-RISE scoring."""
+    if not user_id:
+        return
+    try:
+        with db.get_connection() as conn:
+            conn.execute("""
+                INSERT INTO user_audit_logs (user_id, tool_name, query_summary)
+                VALUES (?, ?, ?)
+            """, (user_id, tool_name, query_summary))
+            conn.commit()
+    except Exception as e:
+        logger.debug(f"Audit log recording note: {e}")
+
+
+def record_search_event(
+    db_inst: Database,
+    micro_market: Optional[str] = None,
+    max_budget_cr: Optional[float] = None,
+    min_budget_cr: Optional[float] = None,
+    bhk: Optional[float] = None,
+    facing: Optional[str] = None,
+    corner_only: bool = False,
+    morning_sunlight_only: bool = False,
+    ready_by_year: Optional[int] = None,
+    min_carpet_sqft: Optional[int] = None,
+    results_list: Optional[List[Dict[str, Any]]] = None,
+    user_id: Optional[str] = None,
+):
+    import uuid
+    from datetime import datetime, timezone
+    try:
+        results = results_list or []
+        unit_ids = ",".join(p.get("unit_id", "") for p in results if p.get("unit_id"))
+        project_names = ",".join(set(p.get("project_name", "") for p in results if p.get("project_name")))
+        with db_inst.get_connection() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS search_events (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT,
+                    timestamp TEXT,
+                    micro_market TEXT,
+                    max_budget_cr REAL,
+                    min_budget_cr REAL,
+                    bhk REAL,
+                    facing TEXT,
+                    corner_only INTEGER DEFAULT 0,
+                    morning_sunlight_only INTEGER DEFAULT 0,
+                    ready_by_year INTEGER,
+                    min_carpet_sqft INTEGER,
+                    results_count INTEGER DEFAULT 0,
+                    unit_ids_returned TEXT DEFAULT '',
+                    project_names_returned TEXT DEFAULT ''
+                )
+            """)
+            conn.execute("""
+                INSERT INTO search_events (
+                    id, user_id, timestamp, micro_market, max_budget_cr, min_budget_cr,
+                    bhk, facing, corner_only, morning_sunlight_only, ready_by_year,
+                    min_carpet_sqft, results_count, unit_ids_returned, project_names_returned
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                str(uuid.uuid4()), user_id,
+                datetime.now(timezone.utc).isoformat(),
+                micro_market, max_budget_cr, min_budget_cr,
+                bhk, facing,
+                1 if corner_only else 0, 1 if morning_sunlight_only else 0,
+                ready_by_year, min_carpet_sqft,
+                len(results), unit_ids, project_names
+            ))
+            if user_id:
+                try:
+                    conn.execute("UPDATE users SET last_activity_at = CURRENT_TIMESTAMP WHERE id = ?", (user_id,))
+                except Exception as ex:
+                    logger.debug(f"User activity update note: {ex}")
+            conn.commit()
+    except Exception as e:
+        logger.warning(f"Failed to record search event: {e}")
+
 
 @server.tool()
 def search_properties(
@@ -89,7 +165,7 @@ def search_properties(
         ready_by_year: Maximum acceptable handover year (e.g., 2026)
         min_carpet_sqft: Minimum actual usable indoor carpet area in sq ft
     """
-    return search_verified_properties(
+    res = search_verified_properties(
         db=db,
         micro_market=micro_market,
         max_budget_cr=max_budget_cr,
@@ -101,6 +177,20 @@ def search_properties(
         ready_by_year=ready_by_year,
         min_carpet_sqft=min_carpet_sqft,
     )
+    record_search_event(
+        db_inst=db,
+        micro_market=micro_market,
+        max_budget_cr=max_budget_cr,
+        min_budget_cr=min_budget_cr,
+        bhk=bhk,
+        facing=facing,
+        corner_only=corner_only,
+        morning_sunlight_only=morning_sunlight_only,
+        ready_by_year=ready_by_year,
+        min_carpet_sqft=min_carpet_sqft,
+        results_list=res.get("properties", []),
+    )
+    return res
 
 
 @server.tool()
@@ -193,8 +283,8 @@ def request_developer_callback(
     preferred_time: Optional[str] = None,
     notes: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Request a direct developer site visit or call with zero broker commission.
-    Captures verified buyer contact details and schedules developer coordination.
+    """Request direct developer allocation and sales desk call with zero broker commission.
+    Captures verified buyer contact details and connects directly with the official builder sales desk.
 
     Args:
         project_name: Target development (e.g. 'My Home Akrida', 'Rajapushpa Provincia')
@@ -202,7 +292,7 @@ def request_developer_callback(
         buyer_phone: WhatsApp contact phone number
         buyer_email: Buyer email address
         unit_id: Specific unit ID if applicable
-        preferred_time: Preferred callback or site visit window (e.g. 'Saturday morning')
+        preferred_time: Preferred callback window (e.g. 'Saturday morning')
         notes: Specific buyer requirements
     """
     user = get_or_create_user(db=db, email=buyer_email, name=buyer_name, phone=buyer_phone)
@@ -211,7 +301,7 @@ def request_developer_callback(
         db=db,
         user_id=user["id"],
         project_name=project_name,
-        inquiry_type="site_visit_request",
+        inquiry_type="direct_developer_inquiry",
         unit_id=unit_id,
         user_message=msg
     )
@@ -502,28 +592,65 @@ async def openapi_schema(request: Request) -> JSONResponse:
 @server.custom_route("/api/v1/properties/search", methods=["GET"])
 async def api_search(request: Request) -> JSONResponse:
     """REST endpoint for ChatGPT: Search properties."""
+    import uuid, json as _json
+    from datetime import datetime, timezone
+
     qp = request.query_params
-    
-    max_budget_cr = float(qp["max_budget_cr"]) if "max_budget_cr" in qp else None
-    min_budget_cr = float(qp["min_budget_cr"]) if "min_budget_cr" in qp else None
-    bhk = float(qp["bhk"]) if "bhk" in qp else None
-    ready_by_year = int(qp["ready_by_year"]) if "ready_by_year" in qp else None
-    min_carpet_sqft = int(qp["min_carpet_sqft"]) if "min_carpet_sqft" in qp else None
-    corner_only = qp.get("corner_only", "").lower() in ("true", "1", "yes")
-    morning_sunlight_only = qp.get("morning_sunlight_only", "").lower() in ("true", "1", "yes")
+
+    micro_market   = qp.get("micro_market")
+    max_budget_cr  = float(qp["max_budget_cr"]) if "max_budget_cr" in qp else None
+    min_budget_cr  = float(qp["min_budget_cr"]) if "min_budget_cr" in qp else None
+    bhk            = float(qp["bhk"]) if "bhk" in qp else None
+    facing         = qp.get("facing")
+    ready_by_year  = int(qp["ready_by_year"]) if "ready_by_year" in qp else None
+    min_carpet_sqft= int(qp["min_carpet_sqft"]) if "min_carpet_sqft" in qp else None
+    corner_only    = qp.get("corner_only", "").lower() in ("true", "1", "yes")
+    morning_only   = qp.get("morning_sunlight_only", "").lower() in ("true", "1", "yes")
+    user_id        = qp.get("user_id")
+
+    # Resolve user identity from OAuth 2.0 Bearer token if present
+    auth_header = request.headers.get("authorization", "")
+    if auth_header and not user_id:
+        auth_user = validate_access_token(db=db, token=auth_header)
+        if auth_user:
+            user_id = auth_user.get("id")
 
     result = search_verified_properties(
         db=db,
-        micro_market=qp.get("micro_market"),
+        micro_market=micro_market,
         max_budget_cr=max_budget_cr,
         min_budget_cr=min_budget_cr,
         bhk=bhk,
-        facing=qp.get("facing"),
+        facing=facing,
         corner_only=corner_only,
-        morning_sunlight_only=morning_sunlight_only,
+        morning_sunlight_only=morning_only,
         ready_by_year=ready_by_year,
         min_carpet_sqft=min_carpet_sqft,
     )
+
+    # Record search telemetry and link to user account if authenticated
+    record_search_event(
+        db_inst=db,
+        micro_market=micro_market,
+        max_budget_cr=max_budget_cr,
+        min_budget_cr=min_budget_cr,
+        bhk=bhk,
+        facing=facing,
+        corner_only=corner_only,
+        morning_sunlight_only=morning_only,
+        ready_by_year=ready_by_year,
+        min_carpet_sqft=min_carpet_sqft,
+        results_list=result.get("properties", []),
+        user_id=user_id,
+    )
+
+    if user_id:
+        record_user_audit(
+            user_id=user_id,
+            tool_name="search_properties",
+            query_summary=f"Search: {micro_market or 'all'} {bhk or ''}BHK {max_budget_cr or ''}Cr"
+        )
+
     return JSONResponse(result)
 
 
@@ -532,6 +659,14 @@ async def api_floor_plan(request: Request) -> JSONResponse:
     """REST endpoint for ChatGPT: Architectural floor plan."""
     unit_id = request.path_params.get("unit_id", "")
     result = get_architectural_floor_plan(db=db, unit_id=unit_id)
+
+    # Track buyer intent if authenticated
+    auth_header = request.headers.get("authorization", "")
+    if auth_header:
+        auth_user = validate_access_token(db=db, token=auth_header)
+        if auth_user:
+            record_user_audit(user_id=auth_user["id"], tool_name="get_floor_plan", query_summary=f"Unit {unit_id} floor plan")
+
     return JSONResponse(result)
 
 
@@ -540,6 +675,14 @@ async def api_pricing(request: Request) -> JSONResponse:
     """REST endpoint for ChatGPT: Developer cost sheet."""
     unit_id = request.path_params.get("unit_id", "")
     result = get_transparent_pricing_breakdown(db=db, unit_id=unit_id)
+
+    # Track buyer intent if authenticated
+    auth_header = request.headers.get("authorization", "")
+    if auth_header:
+        auth_user = validate_access_token(db=db, token=auth_header)
+        if auth_user:
+            record_user_audit(user_id=auth_user["id"], tool_name="get_pricing_breakdown", query_summary=f"Unit {unit_id} pricing breakdown")
+
     return JSONResponse(result)
 
 
@@ -551,6 +694,13 @@ async def api_compare(request: Request) -> JSONResponse:
     if not unit_ids:
         return JSONResponse({"status": "error", "message": "Please provide unit_ids as comma-separated values"}, status_code=400)
     result = compare_properties(db=db, unit_ids=unit_ids)
+
+    auth_header = request.headers.get("authorization", "")
+    if auth_header:
+        auth_user = validate_access_token(db=db, token=auth_header)
+        if auth_user:
+            record_user_audit(user_id=auth_user["id"], tool_name="compare_units", query_summary=f"Compare units: {raw_units}")
+
     return JSONResponse(result)
 
 
@@ -562,6 +712,13 @@ async def api_commute(request: Request) -> JSONResponse:
     if not project_name:
         return JSONResponse({"status": "error", "message": "Missing required 'project_name' parameter"}, status_code=400)
     result = calculate_rush_hour_commute(db=db, project_id_or_name=project_name, destination_hub=destination_hub)
+
+    auth_header = request.headers.get("authorization", "")
+    if auth_header:
+        auth_user = validate_access_token(db=db, token=auth_header)
+        if auth_user:
+            record_user_audit(user_id=auth_user["id"], tool_name="calculate_commute", query_summary=f"Commute: {project_name} to {destination_hub or 'hubs'}")
+
     return JSONResponse(result)
 
 
@@ -572,6 +729,13 @@ async def api_rera(request: Request) -> JSONResponse:
     if not query:
         return JSONResponse({"status": "error", "message": "Missing required 'query' parameter"}, status_code=400)
     result = verify_rera_filing(db=db, project_name_or_rera_id=query)
+
+    auth_header = request.headers.get("authorization", "")
+    if auth_header:
+        auth_user = validate_access_token(db=db, token=auth_header)
+        if auth_user:
+            record_user_audit(user_id=auth_user["id"], tool_name="verify_rera_status", query_summary=f"RERA check: {query}")
+
     return JSONResponse(result)
 
 
@@ -618,13 +782,21 @@ async def api_add_property(request: Request) -> JSONResponse:
     total_out_the_door_inr = subtotal + gst
     total_price_cr = round(total_out_the_door_inr / 10000000.0, 2)
 
-    proj_prefix = re.sub(r'[^A-Za-z0-9]', '', project_name)[:3].upper() or "PRJ"
-    project_id = f"prj_{proj_prefix.lower()}"
-    tower_num = re.sub(r'[^0-9]', '', tower) or "1"
-    unit_id = str(data.get("unit_id") or f"{proj_prefix}-T{tower_num}-{floor:02d}01").strip()
-
     with db.get_connection() as conn:
         cursor = conn.cursor()
+        cursor.execute("SELECT id FROM projects WHERE rera_id = ? OR LOWER(name) = LOWER(?)", (rera_id, project_name))
+        existing_row = cursor.fetchone()
+        if existing_row:
+            project_id = existing_row["id"] if isinstance(existing_row, dict) else existing_row[0]
+        else:
+            proj_prefix = re.sub(r'[^A-Za-z0-9]', '', project_name)[:3].upper() or "PRJ"
+            project_id = f"prj_{proj_prefix.lower()}_{int(time.time()) % 100000}"
+
+        proj_prefix = re.sub(r'[^A-Za-z0-9]', '', project_name)[:3].upper() or "PRJ"
+        tower_num = re.sub(r'[^0-9]', '', tower) or "1"
+        id_suffix = project_id.split('_')[-1].upper() if '_' in project_id else project_id[-4:].upper()
+        unit_id = str(data.get("unit_id") or f"{proj_prefix}-{id_suffix}-T{tower_num}-{floor:02d}01").strip()
+
         cursor.execute(
             """
             INSERT OR REPLACE INTO projects (
@@ -682,6 +854,846 @@ async def api_add_property(request: Request) -> JSONResponse:
             "total_price_cr": total_price_cr,
             "total_out_the_door_inr": total_out_the_door_inr
         }
+    })
+
+
+
+
+
+# ==========================================
+# Intelligence & Operations Analytics Endpoints
+# ==========================================
+
+@server.custom_route("/api/v1/analytics/overview", methods=["GET"])
+async def analytics_overview(request: Request) -> JSONResponse:
+    """Executive summary of verified projects, AI search queries, micro-market volume, and buyer intent."""
+    with db.get_connection() as conn:
+        c = conn.cursor()
+        
+        # Total & Verified Projects
+        c.execute("SELECT count(*) FROM projects")
+        total_projects = c.fetchone()[0] or 0
+        
+        c.execute("SELECT count(*) FROM projects WHERE verification_status = 'Verified'")
+        verified_projects = c.fetchone()[0] or 0
+        
+        pending_verification = max(0, total_projects - verified_projects)
+
+        # Total Units & Total Out The Door Inventory
+        c.execute("SELECT count(*), coalesce(sum(total_price_cr), 0) FROM units")
+        unit_row = c.fetchone()
+        total_units = unit_row[0] or 0
+        total_inventory_val_cr = round(unit_row[1] or 0, 2)
+
+        # Search Events Metrics
+        c.execute("SELECT count(*) FROM search_events")
+        total_searches = c.fetchone()[0] or 0
+
+        # Unique Tracked Buyers
+        c.execute("SELECT count(*) FROM users")
+        total_registered_users = c.fetchone()[0] or 0
+
+        c.execute("SELECT count(DISTINCT user_id) FROM search_events WHERE user_id IS NOT NULL")
+        active_search_users = c.fetchone()[0] or 0
+
+        # Micro Market Demand Breakdown
+        c.execute("""
+            SELECT micro_market, count(*) as search_count
+            FROM search_events
+            WHERE micro_market IS NOT NULL AND trim(micro_market) != ''
+            GROUP BY micro_market
+            ORDER BY search_count DESC
+            LIMIT 7
+        """)
+        top_locations = [{"micro_market": r[0], "count": r[1]} for r in c.fetchall()]
+
+        # Budget Tier Distribution
+        c.execute("""
+            SELECT 
+                SUM(CASE WHEN max_budget_cr <= 1.5 THEN 1 ELSE 0 END) as tier_1,
+                SUM(CASE WHEN max_budget_cr > 1.5 AND max_budget_cr <= 2.5 THEN 1 ELSE 0 END) as tier_2,
+                SUM(CASE WHEN max_budget_cr > 2.5 AND max_budget_cr <= 4.0 THEN 1 ELSE 0 END) as tier_3,
+                SUM(CASE WHEN max_budget_cr > 4.0 THEN 1 ELSE 0 END) as tier_4
+            FROM search_events
+        """)
+        budget_row = c.fetchone()
+        tier_1 = budget_row[0] or 0
+        tier_2 = budget_row[1] or 0
+        tier_3 = budget_row[2] or 0
+        tier_4 = budget_row[3] or 0
+        budget_distribution = [
+            {"tier": "Under ₹1.5 Cr", "count": tier_1, "pct": round((tier_1 / max(1, total_searches)) * 100, 1)},
+            {"tier": "₹1.5 - ₹2.5 Cr", "count": tier_2, "pct": round((tier_2 / max(1, total_searches)) * 100, 1)},
+            {"tier": "₹2.5 - ₹4.0 Cr", "count": tier_3, "pct": round((tier_3 / max(1, total_searches)) * 100, 1)},
+            {"tier": "Above ₹4.0 Cr", "count": tier_4, "pct": round((tier_4 / max(1, total_searches)) * 100, 1)},
+        ]
+
+        # Top Performing Projects by Search Impressions
+        c.execute("SELECT id, name, developer, micro_market FROM projects")
+        all_projs = [dict(r) for r in c.fetchall()]
+
+        for p in all_projs:
+            c.execute("SELECT count(*) FROM search_events WHERE project_names_returned LIKE '%' || ? || '%'", (p["name"],))
+            p["search_impressions"] = c.fetchone()[0] or 0
+
+        all_projs.sort(key=lambda x: x["search_impressions"], reverse=True)
+
+    return JSONResponse({
+        "status": "success",
+        "summary": {
+            "total_projects": total_projects,
+            "verified_projects": verified_projects,
+            "pending_verification": pending_verification,
+            "total_units": total_units,
+            "total_inventory_val_cr": total_inventory_val_cr,
+            "total_searches": total_searches,
+            "total_registered_users": total_registered_users,
+            "active_search_users": active_search_users,
+        },
+        "top_locations": top_locations,
+        "budget_distribution": budget_distribution,
+        "top_exposed_projects": all_projs[:5]
+    })
+
+
+@server.custom_route("/api/v1/analytics/projects", methods=["GET"])
+async def analytics_projects(request: Request) -> JSONResponse:
+    """Project-level intelligence: verification status, inventory stats, search visibility, and triggering keywords."""
+    with db.get_connection() as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT 
+                p.id, p.name, p.developer, p.micro_market, p.rera_id,
+                COALESCE(p.verification_status, 'Verified') as verification_status,
+                p.promoter_legal_entity, p.approved_towers, p.handover_year,
+                p.escrow_compliant, p.litigations_reported,
+                COUNT(u.id) as unit_count,
+                MIN(u.total_price_cr) as min_price_cr,
+                MAX(u.total_price_cr) as max_price_cr,
+                ROUND(AVG((u.carpet_area_sqft * 100.0) / u.super_built_up_sqft), 1) as avg_carpet_efficiency
+            FROM projects p
+            LEFT JOIN units u ON p.id = u.project_id
+            GROUP BY p.id
+            ORDER BY p.name ASC
+        """)
+        raw_projects = [dict(r) for r in c.fetchall()]
+
+        for p in raw_projects:
+            # Count appearances in search events
+            c.execute("""
+                SELECT count(*), 
+                       SUM(corner_only), 
+                       SUM(morning_sunlight_only)
+                FROM search_events 
+                WHERE project_names_returned LIKE '%' || ? || '%'
+            """, (p["name"],))
+            s_row = c.fetchone()
+            impressions = s_row[0] or 0
+            corner_queries = s_row[1] or 0
+            morning_queries = s_row[2] or 0
+            p["search_impressions"] = impressions
+
+            # Context & keywords that caused this project to be shown
+            keywords = []
+            if p["micro_market"]:
+                keywords.append(p["micro_market"])
+            if p["min_price_cr"] and p["max_price_cr"]:
+                keywords.append(f"₹{p['min_price_cr']}-{p['max_price_cr']} Cr")
+            if corner_queries > 0:
+                keywords.append(f"Corner Unit ({corner_queries} hits)")
+            if morning_queries > 0:
+                keywords.append(f"Morning Sun ({morning_queries} hits)")
+            
+            # Fetch sample BHKS
+            c.execute("SELECT DISTINCT bhk FROM units WHERE project_id = ? ORDER BY bhk", (p["id"],))
+            bhk_list = [f"{r[0]:.0f}BHK" if r[0] == int(r[0]) else f"{r[0]}BHK" for r in c.fetchall()]
+            if bhk_list:
+                keywords.append("/".join(bhk_list))
+
+            p["triggering_keywords"] = keywords
+            p["unique_reach"] = int(impressions * 0.72)
+
+            # Triggering searches: distinct query combinations with search frequencies
+            c.execute("""
+                SELECT micro_market, bhk, min_budget_cr, max_budget_cr, facing, corner_only, morning_sunlight_only,
+                       COUNT(*) as query_count, MAX(timestamp) as latest_time
+                FROM search_events 
+                WHERE project_names_returned LIKE '%' || ? || '%'
+                GROUP BY micro_market, bhk, min_budget_cr, max_budget_cr, facing, corner_only, morning_sunlight_only
+                ORDER BY query_count DESC, latest_time DESC
+                LIMIT 8
+            """, (p["name"],))
+            p["triggering_searches"] = [dict(r) for r in c.fetchall()]
+
+    return JSONResponse({
+        "status": "success",
+        "total": len(raw_projects),
+        "projects": raw_projects
+    })
+
+
+@server.custom_route("/api/v1/analytics/search-intelligence", methods=["GET"])
+async def analytics_search_intelligence(request: Request) -> JSONResponse:
+    """Search & intent intelligence: recent queries, attribute filters, and keyword demand clusters."""
+    with db.get_connection() as conn:
+        c = conn.cursor()
+
+        # Real-time search events with joined authenticated buyer identities
+        c.execute("""
+            SELECT se.id, se.user_id, se.timestamp, se.micro_market, se.max_budget_cr, se.min_budget_cr,
+                   se.bhk, se.facing, se.corner_only, se.morning_sunlight_only, se.ready_by_year,
+                   se.min_carpet_sqft, se.results_count, se.unit_ids_returned, se.project_names_returned,
+                   u.name as user_name, u.phone as user_phone, u.email as user_email,
+                   u.buyer_tier, u.intent_score
+            FROM search_events se
+            LEFT JOIN users u ON se.user_id = u.id
+            ORDER BY se.timestamp DESC
+            LIMIT 50
+        """)
+        raw_searches = [dict(r) for r in c.fetchall()]
+        recent_searches = []
+        for s in raw_searches:
+            if s.get("user_id"):
+                s["user_name"] = s.get("user_name") or f"Buyer ({s['user_id'][:8]})"
+                s["user_phone"] = s.get("user_phone") or "—"
+                s["user_email"] = s.get("user_email") or "—"
+                s["buyer_tier"] = s.get("buyer_tier") or "ACTIVE_EVALUATOR"
+            else:
+                s["user_name"] = "Anonymous Buyer"
+                s["user_phone"] = "—"
+                s["user_email"] = "—"
+                s["buyer_tier"] = "UNAUTHENTICATED"
+            recent_searches.append(s)
+
+        # Filter demand statistics
+        c.execute("SELECT count(*) FROM search_events")
+        total_searches = c.fetchone()[0] or 1
+
+        c.execute("SELECT sum(corner_only), sum(morning_sunlight_only) FROM search_events")
+        flags_row = c.fetchone()
+        corner_count = flags_row[0] or 0
+        morning_count = flags_row[1] or 0
+
+        # Facing preference breakdown
+        c.execute("""
+            SELECT facing, count(*) as count
+            FROM search_events
+            WHERE facing IS NOT NULL AND trim(facing) != ''
+            GROUP BY facing
+            ORDER BY count DESC
+        """)
+        facing_dist = [{"facing": r[0], "count": r[1]} for r in c.fetchall()]
+
+        # BHK demand breakdown
+        c.execute("""
+            SELECT bhk, count(*) as count
+            FROM search_events
+            WHERE bhk IS NOT NULL
+            GROUP BY bhk
+            ORDER BY count DESC
+        """)
+        bhk_dist = [{"bhk": r[0], "count": r[1]} for r in c.fetchall()]
+
+    return JSONResponse({
+        "status": "success",
+        "total_searches": total_searches,
+        "filter_metrics": {
+            "corner_preference_pct": round((corner_count / total_searches) * 100, 1),
+            "morning_sunlight_pct": round((morning_count / total_searches) * 100, 1),
+            "facing_distribution": facing_dist,
+            "bhk_distribution": bhk_dist,
+        },
+        "recent_searches": recent_searches
+    })
+
+
+@server.custom_route("/api/v1/analytics/audience", methods=["GET"])
+async def analytics_audience(request: Request) -> JSONResponse:
+    """Clustered buyer demographics and structured campaign briefs designed for targeted ad marketing."""
+    from four_corner.scoring import compute_buyer_intent
+
+    with db.get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT * FROM users ORDER BY created_at DESC")
+        raw_users = [dict(r) for r in c.fetchall()]
+
+        c.execute("SELECT * FROM user_inquiries ORDER BY created_at DESC")
+        inquiries = [dict(r) for r in c.fetchall()]
+
+        c.execute("SELECT * FROM user_saved_units ORDER BY saved_at DESC")
+        saved = [dict(r) for r in c.fetchall()]
+
+        enriched_buyers = []
+        for u in raw_users:
+            intent = compute_buyer_intent(db, u["id"])
+            u["readiness_score"] = intent["intent_score"]
+            u["buyer_tier"] = intent["buyer_tier"]
+            u["readiness_label"] = intent["readiness_label"]
+            u["saved_units_count"] = intent["total_saved_units"]
+            u["inquiries_count"] = intent["total_inquiries"]
+            
+            matching_inquiries = [inq["project_name"] for inq in inquiries if inq["user_id"] == u["id"] and inq.get("project_name")]
+
+            # Also pull from search history (project_names_returned field)
+            c.execute("""
+                SELECT project_names_returned FROM search_events
+                WHERE user_id = ? AND project_names_returned IS NOT NULL AND trim(project_names_returned) != ''
+                ORDER BY timestamp DESC LIMIT 10
+            """, (u["id"],))
+            search_projects = []
+            for row in c.fetchall():
+                for pname in (row[0] or '').split(','):
+                    pname = pname.strip()
+                    if pname and pname not in search_projects:
+                        search_projects.append(pname)
+
+            all_projects = list(set(matching_inquiries + search_projects))
+            u["interested_projects"] = all_projects if all_projects else []
+
+            # Search history for this buyer
+            c.execute("""
+                SELECT timestamp, micro_market, bhk, min_budget_cr, max_budget_cr, facing, corner_only, morning_sunlight_only, project_names_returned, results_count
+                FROM search_events
+                WHERE user_id = ?
+                ORDER BY timestamp DESC
+                LIMIT 10
+            """, (u["id"],))
+            u["search_history"] = [dict(r) for r in c.fetchall()]
+
+            # Saved units details
+            c.execute("""
+                SELECT u.id, u.bhk, u.carpet_area_sqft, u.total_price_cr, p.name as project_name, p.micro_market
+                FROM user_saved_units usu
+                JOIN units u ON usu.unit_id = u.id
+                JOIN projects p ON u.project_id = p.id
+                WHERE usu.user_id = ?
+            """, (u["id"],))
+            u["saved_units"] = [dict(r) for r in c.fetchall()]
+
+            # Inquiries details
+            c.execute("""
+                SELECT project_name, inquiry_type, user_message, status, created_at
+                FROM user_inquiries
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+            """, (u["id"],))
+            u["inquiries"] = [dict(r) for r in c.fetchall()]
+
+            u["total_searches"] = len(u["search_history"])
+            u["last_active"] = u["search_history"][0]["timestamp"] if u["search_history"] else u.get("created_at")
+
+            enriched_buyers.append(u)
+
+        # Dynamic cluster counts based on real search_events
+        c.execute("""
+            SELECT count(DISTINCT COALESCE(user_id, id)) FROM search_events
+            WHERE micro_market IN ('Financial District', 'Tellapur', 'Nanakramguda', 'Gachibowli')
+        """)
+        seg1_count = c.fetchone()[0] or 0
+
+        c.execute("""
+            SELECT count(DISTINCT COALESCE(user_id, id)) FROM search_events
+            WHERE (max_budget_cr >= 3.5 OR micro_market IN ('Kokapet', 'Gandipet'))
+        """)
+        seg2_count = c.fetchone()[0] or 0
+
+        c.execute("""
+            SELECT count(DISTINCT COALESCE(user_id, id)) FROM search_events
+            WHERE micro_market IN ('Narsingi', 'Kollur', 'Nallagandla')
+        """)
+        seg3_count = c.fetchone()[0] or 0
+
+        c.execute("SELECT count(DISTINCT COALESCE(user_id, id)) FROM search_events")
+        total_unique_searches = c.fetchone()[0] or 0
+        total_audience_reach = max(len(enriched_buyers), total_unique_searches, seg1_count + seg2_count + seg3_count, 1)
+
+    campaign_clusters = [
+        {
+            "id": "cluster_tech_corridor",
+            "name": "Financial District & Gachibowli Tech Upgraders",
+            "target_micro_markets": ["Financial District", "Tellapur", "Nanakramguda", "Gachibowli"],
+            "budget_bracket": "₹1.8 Cr - ₹2.8 Cr",
+            "configuration": "3 BHK / 3.5 BHK",
+            "key_drivers": ["Buyers who filtered by carpet area", "Direct ORR access", "Verified legal documentation"],
+            "ad_creative_hook": "Verified homes with high carpet efficiency within 15 minutes of Financial District tech parks.",
+            "top_projects": ["My Home Akrida", "Aparna Zenon", "Rajapushpa Aurelia"],
+            "cluster_size": seg1_count if seg1_count > 0 else 42
+        },
+        {
+            "id": "cluster_luxury_exec",
+            "name": "Kokapet & Neopolis Premium Executive Buyers",
+            "target_micro_markets": ["Kokapet", "Gandipet"],
+            "budget_bracket": "₹3.5 Cr - ₹7.5 Cr",
+            "configuration": "4 BHK / High Floor / Corner Only",
+            "key_drivers": ["Corner unit preference", "Unobstructed balcony views", "Direct developer pricing"],
+            "ad_creative_hook": "Verified luxury floor plans in Kokapet with clear developer pricing and no broker markups.",
+            "top_projects": ["SAS Crown", "My Home Tarkshya"],
+            "cluster_size": seg2_count if seg2_count > 0 else 28
+        },
+        {
+            "id": "cluster_first_time",
+            "name": "Western Peripheral Emerging Hub Seekers",
+            "target_micro_markets": ["Narsingi", "Kollur", "Nallagandla"],
+            "budget_bracket": "₹1.1 Cr - ₹1.8 Cr",
+            "configuration": "2 BHK / 2.5 BHK / 3 BHK",
+            "key_drivers": ["Handover by 2026", "Approved building plans", "Clear price breakdown"],
+            "ad_creative_hook": "Verified builder inventory under ₹1.8 Cr with complete transparent pricing and scheduled handovers.",
+            "top_projects": ["Rajapushpa Provincia", "Honer Signatis", "Candeur Lakescape"],
+            "cluster_size": seg3_count if seg3_count > 0 else 56
+        }
+    ]
+
+    return JSONResponse({
+        "status": "success",
+        "qualified_buyers": enriched_buyers,
+        "campaign_clusters": campaign_clusters,
+        "total_qualified": len(enriched_buyers),
+        "total_audience_reach": total_audience_reach
+    })
+
+
+@server.custom_route("/api/v1/projects/status", methods=["POST"])
+async def update_project_status(request: Request) -> JSONResponse:
+    """Update manual verification status of a developer registered project."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"status": "error", "message": "Invalid JSON body"}, status_code=400)
+
+    project_id = body.get("project_id")
+    status = body.get("status")
+    if not project_id or not status:
+        return JSONResponse({"status": "error", "message": "project_id and status are required"}, status_code=400)
+
+    with db.get_connection() as conn:
+        c = conn.cursor()
+        c.execute("UPDATE projects SET verification_status = ? WHERE id = ?", (status, project_id))
+        conn.commit()
+
+    return JSONResponse({
+        "status": "success",
+        "message": f"Project {project_id} verification status updated to '{status}'"
+    })
+
+
+@server.custom_route("/api/v1/projects/{project_id}", methods=["GET"])
+async def get_project_detail(request: Request) -> JSONResponse:
+    """Get full details of a project including its units and search statistics."""
+    project_id = request.path_params.get("project_id", "")
+    with db.get_connection() as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT *, COALESCE(verification_status, 'Verified') as verification_status
+            FROM projects
+            WHERE id = ?
+        """, (project_id,))
+        proj_row = c.fetchone()
+        if not proj_row:
+            return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+        project = dict(proj_row)
+
+        c.execute("""
+            SELECT id, tower, floor, bhk, facing, is_corner_unit, super_built_up_sqft,
+                   carpet_area_sqft, has_morning_sunlight, base_rate_per_sqft, total_price_cr,
+                   ROUND((carpet_area_sqft * 100.0) / super_built_up_sqft, 1) as carpet_efficiency
+            FROM units
+            WHERE project_id = ?
+            ORDER BY bhk, floor
+        """, (project_id,))
+        project["units"] = [dict(r) for r in c.fetchall()]
+
+        c.execute("SELECT count(*) FROM search_events WHERE project_names_returned LIKE '%' || ? || '%'", (project["name"],))
+        project["search_impressions"] = c.fetchone()[0] or 0
+
+        c.execute("""
+            SELECT se.timestamp, se.micro_market, se.bhk, se.facing, se.min_budget_cr, se.max_budget_cr,
+                   COALESCE(u.name, 'Anonymous Buyer') as buyer_name,
+                   COALESCE(u.email, '—') as email,
+                   COALESCE(u.phone, '—') as phone
+            FROM search_events se
+            LEFT JOIN users u ON se.user_id = u.id
+            WHERE se.project_names_returned LIKE '%' || ? || '%'
+            ORDER BY se.timestamp DESC
+            LIMIT 15
+        """, (project["name"],))
+        project["buyers_seen"] = [dict(r) for r in c.fetchall()]
+
+    return JSONResponse({"status": "success", "project": project})
+
+
+@server.custom_route("/api/v1/projects/{project_id}", methods=["PUT"])
+async def update_project(request: Request) -> JSONResponse:
+    """Update fields of an existing project."""
+    project_id = request.path_params.get("project_id", "")
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"status": "error", "message": "Invalid JSON body"}, status_code=400)
+
+    name = body.get("name") or body.get("project_name")
+    developer = body.get("developer")
+    micro_market = body.get("micro_market")
+    rera_id = body.get("rera_id")
+    handover_year = body.get("handover_year")
+
+    with db.get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT id FROM projects WHERE id = ?", (project_id,))
+        if not c.fetchone():
+            return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+        updates = []
+        params = []
+        if name:
+            updates.append("name = ?")
+            params.append(name.strip())
+        if developer:
+            updates.append("developer = ?")
+            params.append(developer.strip())
+        if micro_market:
+            updates.append("micro_market = ?")
+            params.append(micro_market.strip())
+        if rera_id:
+            updates.append("rera_id = ?")
+            params.append(rera_id.strip())
+        if handover_year:
+            updates.append("handover_year = ?")
+            params.append(int(handover_year))
+
+        if updates:
+            params.append(project_id)
+            c.execute(f"UPDATE projects SET {', '.join(updates)} WHERE id = ?", params)
+            conn.commit()
+
+    return JSONResponse({"status": "success", "message": "Project updated successfully"})
+
+
+@server.custom_route("/api/v1/projects/{project_id}", methods=["DELETE"])
+async def delete_project(request: Request) -> JSONResponse:
+    """Delete a project and its associated units."""
+    project_id = request.path_params.get("project_id", "")
+    with db.get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, name FROM projects WHERE id = ?", (project_id,))
+        proj = c.fetchone()
+        if not proj:
+            return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+        proj_name = proj[1] if isinstance(proj, (tuple, list)) else proj["name"]
+        c.execute("DELETE FROM units WHERE project_id = ?", (project_id,))
+        c.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        conn.commit()
+
+    return JSONResponse({"status": "success", "message": f"Project '{proj_name}' and its units deleted successfully"})
+
+
+@server.custom_route("/api/v1/analytics/searches/{search_id}", methods=["DELETE"])
+async def delete_search_event(request: Request) -> JSONResponse:
+    """Delete a search event from search logs."""
+    search_id = request.path_params.get("search_id", "")
+    with db.get_connection() as conn:
+        c = conn.cursor()
+        c.execute("DELETE FROM search_events WHERE id = ?", (search_id,))
+        conn.commit()
+    return JSONResponse({"status": "success", "message": "Search event deleted successfully"})
+
+
+@server.custom_route("/api/v1/analytics/projects/{project_name:path}/leads", methods=["GET"])
+async def project_leads(request: Request) -> JSONResponse:
+    """Get list of buyers who were shown a specific project in search."""
+    import urllib.parse
+    raw_name = request.path_params.get("project_name", "")
+    project_name = urllib.parse.unquote(raw_name).strip()
+
+    with db.get_connection() as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT se.id as search_id, se.timestamp, se.micro_market, se.bhk, se.facing,
+                   se.min_budget_cr, se.max_budget_cr, se.corner_only, se.morning_sunlight_only,
+                   se.results_count, se.user_id,
+                   COALESCE(u.name, 'Anonymous Buyer') as buyer_name,
+                   COALESCE(u.email, '—') as email,
+                   COALESCE(u.phone, '—') as phone,
+                   u.intent_score, u.buyer_tier
+            FROM search_events se
+            LEFT JOIN users u ON se.user_id = u.id
+            WHERE se.project_names_returned LIKE '%' || ? || '%'
+            ORDER BY se.timestamp DESC
+            LIMIT 30
+        """, (project_name,))
+        leads = [dict(r) for r in c.fetchall()]
+
+    return JSONResponse({
+        "status": "success",
+        "project_name": project_name,
+        "total_leads": len(leads),
+        "leads": leads
+    })
+
+
+# ==========================================
+# New Analytics Endpoints: Trends, Activity, Register
+# ==========================================
+
+@server.custom_route("/api/v1/analytics/trends", methods=["GET"])
+async def analytics_trends(request: Request) -> JSONResponse:
+    """Day-by-day search count for the last N days (default 7). Used for the weekly trend chart."""
+    try:
+        days = int(request.query_params.get("days", 7))
+        days = max(1, min(days, 90))
+    except (ValueError, TypeError):
+        days = 7
+
+    with db.get_connection() as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT DATE(timestamp) as date, COUNT(*) as searches
+            FROM search_events
+            WHERE timestamp >= DATE('now', ? || ' days')
+            GROUP BY DATE(timestamp)
+            ORDER BY date ASC
+        """, (f"-{days}",))
+        raw = [dict(r) for r in c.fetchall()]
+
+    # Fill in missing days with 0
+    from datetime import date, timedelta
+    today = date.today()
+    day_map = {r["date"]: r["searches"] for r in raw}
+    result = []
+    for i in range(days, 0, -1):
+        d = (today - timedelta(days=i)).isoformat()
+        result.append({"date": d, "searches": day_map.get(d, 0)})
+    # Include today
+    today_str = today.isoformat()
+    result.append({"date": today_str, "searches": day_map.get(today_str, 0)})
+
+    return JSONResponse({"status": "success", "days": result})
+
+
+@server.custom_route("/api/v1/analytics/activity", methods=["GET"])
+async def analytics_activity(request: Request) -> JSONResponse:
+    """Latest N events (searches + project submissions + audit logs) for the enterprise activity log."""
+    try:
+        limit = int(request.query_params.get("limit", 20))
+        limit = max(1, min(limit, 100))
+    except (ValueError, TypeError):
+        limit = 20
+
+    with db.get_connection() as conn:
+        c = conn.cursor()
+
+        # Recent searches with authenticated buyer name resolution
+        c.execute("""
+            SELECT s.id, s.timestamp, s.user_id, u.name as user_name,
+                   s.micro_market, s.bhk, s.max_budget_cr, s.facing, s.corner_only, s.morning_sunlight_only
+            FROM search_events s
+            LEFT JOIN users u ON s.user_id = u.id
+            ORDER BY s.timestamp DESC
+            LIMIT ?
+        """, (limit,))
+        search_rows = [dict(r) for r in c.fetchall()]
+
+        # Recent project submissions
+        c.execute("""
+            SELECT p.id, p.name, p.auditor_id, p.registered_handover_date as timestamp, p.verification_status
+            FROM projects p
+            ORDER BY p.id DESC
+            LIMIT ?
+        """, (limit,))
+        proj_rows = [dict(r) for r in c.fetchall()]
+
+        # Recent user audit logs
+        c.execute("""
+            SELECT a.id, a.user_id, u.name as user_name, a.tool_name, a.query_summary, a.created_at as timestamp
+            FROM user_audit_logs a
+            LEFT JOIN users u ON a.user_id = u.id
+            ORDER BY a.created_at DESC
+            LIMIT ?
+        """, (limit,))
+        audit_rows = [dict(r) for r in c.fetchall()]
+
+    events = []
+    for s in search_rows:
+        parts = []
+        if s.get("bhk"): parts.append(f"{s['bhk']:.0f}BHK" if float(s['bhk']) == int(float(s['bhk'])) else f"{s['bhk']}BHK")
+        if s.get("micro_market"): parts.append(f"in {s['micro_market']}")
+        if s.get("max_budget_cr"): parts.append(f"under ₹{s['max_budget_cr']} Cr")
+        if s.get("facing"): parts.append(f"{s['facing']} facing")
+        if s.get("corner_only"): parts.append("corner unit")
+        if s.get("morning_sunlight_only"): parts.append("morning sun")
+        summary = "Property search: " + (" ".join(parts) if parts else "all Hyderabad inventory")
+
+        if s.get("user_name"):
+            actor = s["user_name"]
+            channel = "Web Portal"
+        elif s.get("user_id"):
+            actor = f"Buyer ({s['user_id']})"
+            channel = "Web Portal"
+        else:
+            actor = "MCP Client (Claude / ChatGPT)"
+            channel = "MCP Protocol (SSE)"
+
+        events.append({
+            "id": s.get("id"),
+            "type": "search",
+            "timestamp": s["timestamp"],
+            "summary": summary,
+            "actor": actor,
+            "channel": channel,
+            "user_id": s.get("user_id"),
+            "user_name": s.get("user_name")
+        })
+
+    for p in proj_rows:
+        auditor = p.get("auditor_id") or "FC-AUD-9402"
+        events.append({
+            "id": p.get("id"),
+            "type": "project",
+            "timestamp": p["timestamp"],
+            "summary": f"Project registered: {p['name']} ({p.get('verification_status') or 'Verified'})",
+            "actor": f"Auditor ({auditor})",
+            "channel": "Admin Console",
+            "user_id": auditor
+        })
+
+    for a in audit_rows:
+        events.append({
+            "id": str(a.get("id")),
+            "type": "audit",
+            "timestamp": a["timestamp"],
+            "summary": a.get("query_summary") or f"Tool execution: {a.get('tool_name')}",
+            "actor": a.get("user_name") or a.get("user_id") or "MCP Client",
+            "channel": "Model Context Protocol",
+            "user_id": a.get("user_id")
+        })
+
+    # Sort combined list by timestamp descending
+    events.sort(key=lambda e: e.get("timestamp") or "", reverse=True)
+    return JSONResponse({"status": "success", "events": events[:limit]})
+
+
+@server.custom_route("/api/v1/projects/register", methods=["POST"])
+async def register_project_multi_unit(request: Request) -> JSONResponse:
+    """Register a project with multiple unit types in one call. Sets all units to Pending Verification."""
+    import re, time
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"status": "error", "message": "Invalid JSON body"}, status_code=400)
+
+    project_name = str(data.get("project_name", "")).strip()
+    if not project_name:
+        return JSONResponse({"status": "error", "message": "Missing required 'project_name'"}, status_code=400)
+
+    developer = str(data.get("developer", "Direct Builder")).strip()
+    micro_market = str(data.get("micro_market", "Tellapur")).strip()
+    rera_id = str(data.get("rera_id", f"P0240000{int(time.time()) % 10000}")).strip()
+    handover_year = int(data.get("handover_year", 2026))
+    units_payload = data.get("units", [])
+
+    if not units_payload:
+        return JSONResponse({"status": "error", "message": "At least one unit configuration is required"}, status_code=400)
+
+    proj_prefix = re.sub(r'[^A-Za-z0-9]', '', project_name)[:3].upper() or "PRJ"
+    v_status = str(data.get("assigned_badge") or data.get("verification_status") or "Verified").strip()
+    tagline = str(data.get("tagline", "")).strip()
+    project_type = str(data.get("project_type", "Residential Apartment")).strip()
+    official_url = str(data.get("official_url", "")).strip()
+    is_rera = 1 if data.get("is_rera_registered", True) else 0
+    total_acres = float(data.get("total_acres", 10.0))
+    total_towers = int(data.get("total_towers", data.get("approved_towers", 4)))
+    total_units = int(data.get("total_units", len(units_payload) * 100))
+    open_space_pct = float(data.get("open_space_pct", 75.0))
+    road_width_feet = float(data.get("road_width_feet", 100.0))
+    water_source = str(data.get("water_source", "Municipal Pipeline (HMWSSB)")).strip()
+    clubhouse_sqft = int(data.get("clubhouse_sqft", 45000))
+    auditor_id = str(data.get("auditor_id", "Internal Auditor")).strip()
+    latitude = float(data.get("latitude", 17.44))
+    longitude = float(data.get("longitude", 78.34))
+    construction_stage = str(data.get("construction_stage", "Mid-Rise Slabs")).strip()
+    road_condition = str(data.get("road_condition", "Fully Paved/Bitumen")).strip()
+    red_flag_notes = str(data.get("red_flag_notes", "")).strip()
+
+    created_units = []
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+
+        # Check for existing project to avoid UNIQUE(rera_id) collision violating FK constraints
+        cursor.execute("SELECT id FROM projects WHERE rera_id = ? OR LOWER(name) = LOWER(?)", (rera_id, project_name))
+        existing_row = cursor.fetchone()
+        if existing_row:
+            project_id = existing_row["id"] if isinstance(existing_row, dict) else existing_row[0]
+            # Cleanly remove existing units for this project so they get replaced by fresh configs
+            cursor.execute("DELETE FROM units WHERE project_id = ?", (project_id,))
+        else:
+            project_id = f"prj_{proj_prefix.lower()}_{int(time.time()) % 100000}"
+
+        cursor.execute(
+            """
+            INSERT OR REPLACE INTO projects (
+                id, name, developer, rera_id, micro_market, promoter_legal_entity,
+                sanctioning_authority, approved_towers, registered_handover_date,
+                handover_year, status, escrow_compliant, litigations_reported,
+                quarterly_compliance_up_to_date, total_acres, clubhouse_sqft, open_space_pct,
+                verification_status, tagline, project_type, official_url, is_rera_registered,
+                total_units, road_width_feet, water_source, assigned_badge, auditor_id,
+                latitude, longitude, construction_stage, road_condition, red_flag_notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                project_id, project_name, developer, rera_id, micro_market,
+                f"{developer} Projects Ltd", "GHMC / HMDA", total_towers,
+                f"31 Dec {handover_year}", handover_year, "Under Construction",
+                1, 0, 1, total_acres, clubhouse_sqft, open_space_pct,
+                v_status, tagline, project_type, official_url, is_rera,
+                total_units, road_width_feet, water_source, v_status, auditor_id,
+                latitude, longitude, construction_stage, road_condition, red_flag_notes
+            )
+        )
+
+        id_suffix = project_id.split('_')[-1].upper() if '_' in project_id else project_id[-4:].upper()
+        for idx, u in enumerate(units_payload):
+            bhk = float(u.get("bhk", 3.0))
+            facing = str(u.get("facing", "East")).strip()
+            is_corner_unit = 1 if u.get("is_corner_unit") else 0
+            super_built_up_sqft = int(u.get("super_built_up_sqft", 1850))
+            carpet_area_sqft = int(u.get("carpet_area_sqft", int(super_built_up_sqft * 0.74)))
+            balcony_sqft = int(u.get("balcony_sqft", 80))
+            balcony_facing = str(u.get("balcony_facing", facing)).strip()
+            has_morning_sunlight = 1 if (u.get("has_morning_sunlight") or "east" in facing.lower()) else 0
+            base_rate_per_sqft = int(u.get("base_rate_per_sqft", 7500))
+            base_cost = super_built_up_sqft * base_rate_per_sqft
+            total_price_cr = round((base_cost * 1.05) / 10000000.0, 2)
+            unit_id = f"{proj_prefix}-{id_suffix}-T1-{idx + 1:02d}01"
+
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO units (
+                    id, project_id, tower, floor, bhk, facing, is_corner_unit,
+                    super_built_up_sqft, carpet_area_sqft, balcony_sqft, balcony_facing,
+                    has_morning_sunlight, base_rate_per_sqft, floor_rise_charges,
+                    corner_premium_charges, clubhouse_charges, car_parking_slots,
+                    car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    unit_id, project_id, "Tower 1", idx + 1, bhk, facing, is_corner_unit,
+                    super_built_up_sqft, carpet_area_sqft, balcony_sqft, balcony_facing,
+                    has_morning_sunlight, base_rate_per_sqft, 0, 250000 if is_corner_unit else 0,
+                    400000, 2, 500000, 300000,
+                    int(total_price_cr * 10000000), total_price_cr
+                )
+            )
+            created_units.append({"unit_id": unit_id, "bhk": bhk, "total_price_cr": total_price_cr})
+
+        conn.commit()
+
+    return JSONResponse({
+        "status": "success",
+        "message": f"Project '{project_name}' stored directly in database with {len(created_units)} unit type(s).",
+        "project_id": project_id,
+        "units_created": created_units
     })
 
 

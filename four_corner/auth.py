@@ -208,7 +208,7 @@ def submit_developer_inquiry(
     unit_id: Optional[str] = None,
     user_message: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Submit a verified direct-developer inquiry or site visit request with zero broker markup."""
+    """Submit a verified direct-developer inquiry or official booking request with zero broker markup."""
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(

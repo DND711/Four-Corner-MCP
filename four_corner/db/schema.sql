@@ -17,7 +17,22 @@ CREATE TABLE IF NOT EXISTS projects (
     quarterly_compliance_up_to_date INTEGER NOT NULL DEFAULT 1,
     total_acres REAL,
     clubhouse_sqft INTEGER,
-    open_space_pct REAL
+    open_space_pct REAL,
+    verification_status TEXT DEFAULT 'Verified',
+    tagline TEXT,
+    project_type TEXT,
+    official_url TEXT,
+    is_rera_registered INTEGER DEFAULT 1,
+    total_units INTEGER,
+    road_width_feet REAL,
+    water_source TEXT,
+    assigned_badge TEXT,
+    auditor_id TEXT,
+    latitude REAL,
+    longitude REAL,
+    construction_stage TEXT,
+    road_condition TEXT,
+    red_flag_notes TEXT
 );
 
 CREATE TABLE IF NOT EXISTS units (
@@ -156,4 +171,26 @@ CREATE INDEX IF NOT EXISTS idx_commute ON commute_corridors(project_id, destinat
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_oauth_tokens ON oauth_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_oauth_codes ON oauth_codes(code);
+
+-- Search Events & Buyer Search Intelligence
+CREATE TABLE IF NOT EXISTS search_events (
+    id TEXT PRIMARY KEY,
+    user_id TEXT,
+    timestamp TEXT,
+    micro_market TEXT,
+    max_budget_cr REAL,
+    min_budget_cr REAL,
+    bhk REAL,
+    facing TEXT,
+    corner_only INTEGER DEFAULT 0,
+    morning_sunlight_only INTEGER DEFAULT 0,
+    ready_by_year INTEGER,
+    min_carpet_sqft INTEGER,
+    results_count INTEGER DEFAULT 0,
+    unit_ids_returned TEXT DEFAULT '',
+    project_names_returned TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_search_events_user ON search_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_search_events_time ON search_events(timestamp);
 

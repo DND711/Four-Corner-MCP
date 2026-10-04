@@ -34,7 +34,7 @@ def test_serious_evaluator_intent(tmp_path):
 
     # 3. Actions
     save_user_favorite(db, user["id"], "CND-T5-1602", "Shortlisted")
-    submit_developer_inquiry(db, user["id"], "Candeur Lakescape", "site_visit", "CND-T5-1602", "Visit on Sunday")
+    submit_developer_inquiry(db, user["id"], "Candeur Lakescape", "developer_direct_inquiry", "CND-T5-1602", "Developer allocation inquiry")
 
     intent = compute_buyer_intent(db, user["id"])
     assert intent["intent_score"] >= 65
