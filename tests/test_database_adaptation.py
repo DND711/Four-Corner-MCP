@@ -55,6 +55,8 @@ def test_row_dict_and_cursor_indexing():
     rd = RowDict({"count": 25, "total_value": 150.5})
     assert rd[0] == 25
     assert rd[1] == 150.5
+    assert rd[2] is None  # Out of range returns None instead of IndexError
+    assert rd[99] is None
     assert rd["count"] == 25
     assert rd.get("count") == 25
     assert rd.get(0) == 25

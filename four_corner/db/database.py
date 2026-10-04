@@ -33,7 +33,7 @@ class RowDict(dict):
             try:
                 return self._values[key]
             except IndexError:
-                raise IndexError(f"Tuple index out of range: {key}")
+                return None
         return super().__getitem__(key)
 
     def __setitem__(self, key, value):

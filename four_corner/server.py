@@ -885,10 +885,10 @@ async def analytics_overview(request: Request) -> JSONResponse:
         pending_verification = max(0, total_projects - verified_projects)
 
         # Total Units & Total Out The Door Inventory
-        c.execute("SELECT count(*), coalesce(sum(total_price_cr), 0.0) FROM units")
+        c.execute("SELECT count(*) as unit_count, coalesce(sum(total_price_cr), 0.0) as total_inventory_val FROM units")
         unit_row = c.fetchone()
-        total_units = (unit_row[0] if unit_row else 0) or 0
-        total_inventory_val_cr = round((unit_row[1] if unit_row else 0) or 0, 2)
+        total_units = (unit_row["unit_count"] if unit_row and "unit_count" in unit_row else (unit_row[0] if unit_row else 0)) or 0
+        total_inventory_val_cr = round((unit_row["total_inventory_val"] if unit_row and "total_inventory_val" in unit_row else (unit_row[1] if unit_row else 0)) or 0, 2)
 
         # Search Events Metrics
         c.execute("SELECT count(*) FROM search_events")
@@ -990,16 +990,16 @@ async def analytics_projects(request: Request) -> JSONResponse:
         for p in raw_projects:
             # Count appearances in search events
             c.execute("""
-                SELECT count(*), 
-                       COALESCE(SUM(CASE WHEN CAST(corner_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0), 
-                       COALESCE(SUM(CASE WHEN CAST(morning_sunlight_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0)
+                SELECT count(*) as total_impressions, 
+                       COALESCE(SUM(CASE WHEN CAST(corner_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0) as corner_queries, 
+                       COALESCE(SUM(CASE WHEN CAST(morning_sunlight_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0) as morning_queries
                 FROM search_events 
                 WHERE project_names_returned LIKE '%' || ? || '%'
             """, (p["name"],))
             s_row = c.fetchone()
-            impressions = (s_row[0] if s_row else 0) or 0
-            corner_queries = (s_row[1] if s_row else 0) or 0
-            morning_queries = (s_row[2] if s_row else 0) or 0
+            impressions = (s_row["total_impressions"] if s_row and "total_impressions" in s_row else (s_row[0] if s_row else 0)) or 0
+            corner_queries = (s_row["corner_queries"] if s_row and "corner_queries" in s_row else (s_row[1] if s_row else 0)) or 0
+            morning_queries = (s_row["morning_queries"] if s_row and "morning_queries" in s_row else (s_row[2] if s_row else 0)) or 0
             p["search_impressions"] = impressions
 
             # Context & keywords that caused this project to be shown
@@ -1081,13 +1081,13 @@ async def analytics_search_intelligence(request: Request) -> JSONResponse:
 
         c.execute("""
             SELECT 
-                COALESCE(SUM(CASE WHEN CAST(corner_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0), 
-                COALESCE(SUM(CASE WHEN CAST(morning_sunlight_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0) 
+                COALESCE(SUM(CASE WHEN CAST(corner_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0) as corner_count, 
+                COALESCE(SUM(CASE WHEN CAST(morning_sunlight_only AS TEXT) IN ('1', 'true', 'TRUE', 't') THEN 1 ELSE 0 END), 0) as morning_count 
             FROM search_events
         """)
         flags_row = c.fetchone()
-        corner_count = (flags_row[0] if flags_row else 0) or 0
-        morning_count = (flags_row[1] if flags_row else 0) or 0
+        corner_count = (flags_row["corner_count"] if flags_row and "corner_count" in flags_row else (flags_row[0] if flags_row else 0)) or 0
+        morning_count = (flags_row["morning_count"] if flags_row and "morning_count" in flags_row else (flags_row[1] if flags_row else 0)) or 0
 
         # Facing preference breakdown
         c.execute("""
