@@ -32,7 +32,15 @@ CREATE TABLE IF NOT EXISTS projects (
     longitude REAL,
     construction_stage TEXT,
     road_condition TEXT,
-    red_flag_notes TEXT
+    red_flag_notes TEXT,
+    hero_image_url TEXT,
+    gallery_images TEXT,
+    walkthrough_video_url TEXT,
+    drone_footage_url TEXT,
+    brochure_pdf_url TEXT,
+    master_plan_url TEXT,
+    cost_sheet_pdf_url TEXT,
+    site_progress_photos TEXT
 );
 
 CREATE TABLE IF NOT EXISTS units (
@@ -43,6 +51,7 @@ CREATE TABLE IF NOT EXISTS units (
     bhk REAL NOT NULL,
     facing TEXT NOT NULL,
     is_corner_unit INTEGER NOT NULL DEFAULT 0,
+    floor_plan_image_url TEXT,
     super_built_up_sqft INTEGER NOT NULL,
     carpet_area_sqft INTEGER NOT NULL,
     balcony_sqft INTEGER NOT NULL,

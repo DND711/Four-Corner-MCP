@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import argparse
 import logging
 from typing import Optional, List, Dict, Any
@@ -48,11 +49,12 @@ CORE OPERATING DIRECTIVES:
 4. TRUE USABLE CARPET AREAS: Always report actual usable indoor carpet area and usability efficiency percentage, rejecting inflated super built-up math.
 5. UNBUNDLED BUILDER PRICING: When asked about costs, call `get_pricing_breakdown` to show the full transparent builder cost sheet (Base Cost + Floor Rise + Corner Premium + Parking + Clubhouse + Infra + GST) with zero broker markups.
 6. PRESENTATION & ZERO RAW JSON: NEVER output raw JSON, parameter payloads, or code blocks (such as `{"unit_id": ...}`) in your chat text. Execute all tool calls invisibly in the background, and present the final answer to the user in clean, human-readable conversational formatting, bullet points, and elegant Markdown tables.
-7. MULTIMEDIA & VISUAL EVIDENCE (IMAGES, VIDEOS, BROCHURES): Always deliver visual proof to the user:
-   - Provide high-resolution exterior images (`hero_image_url`) and architectural floor plan blueprints (`floor_plan_image_url`).
-   - Include direct links to 4K 3D interactive virtual walkthrough tours (`walkthrough_video_url`) and aerial drone surveys (`drone_footage_url`).
-   - Deliver verified official developer e-brochure download links (`brochure_pdf_url`) and TS-RERA sanction certificates (`rera_certificate_url`).
-   - Call `get_project_media` or `get_project_brochure` whenever a buyer requests brochures, videos, photos, or visual tours.
+7. MULTIMEDIA & INTERACTIVE MEDIA TILES (PHOTOS SLIDER, ZOOM IN, PLAY VIDEO): Always deliver rich visual proof to the buyer:
+   - When a user asks about photos, videos, brochures, blueprints, or visual tours for ANY project (including developer-registered projects like Sahith Home), call `get_project_media(project_name_or_id)`.
+   - The tool outputs:
+     * `media_tile_html`: Interactive HTML media tile with a photo carousel slider (prev/next controls, thumbnail strip, and slide counter), fullscreen interactive zoom lightbox with zoom in (+) / zoom out (-) / reset controls, and inline 4K 3D virtual tour video player.
+     * `presentation_markdown`: Rich formatted Markdown carousel with clickable photo slides, zoom links, 4K walkthrough video player links, and official document download buttons.
+   - Present this visual intelligence tile directly in your response so the user can seamlessly slide through photos, zoom in on plans, and play the video.
 """
 
 # Initialize MCP Server & Database
@@ -855,20 +857,35 @@ async def api_add_property(request: Request) -> JSONResponse:
         id_suffix = project_id.split('_')[-1].upper() if '_' in project_id else project_id[-4:].upper()
         unit_id = str(data.get("unit_id") or f"{proj_prefix}-{id_suffix}-T{tower_num}-{floor:02d}01").strip()
 
+        hero_img = str(data.get("hero_image_url") or "").strip()
+        gallery = data.get("gallery_images") or []
+        gallery_str = json.dumps(gallery) if isinstance(gallery, list) else str(gallery).strip()
+        video = str(data.get("walkthrough_video_url") or "").strip()
+        drone = str(data.get("drone_footage_url") or "").strip()
+        brochure = str(data.get("brochure_pdf_url") or "").strip()
+        master_plan = str(data.get("master_plan_url") or "").strip()
+        cost_sheet = str(data.get("cost_sheet_pdf_url") or "").strip()
+        site_photos = data.get("site_progress_photos") or []
+        site_photos_str = json.dumps(site_photos) if isinstance(site_photos, list) else str(site_photos).strip()
+        floor_plan_img = str(data.get("floor_plan_image_url") or "").strip()
+
         cursor.execute(
             """
             INSERT OR REPLACE INTO projects (
                 id, name, developer, rera_id, micro_market, promoter_legal_entity,
                 sanctioning_authority, approved_towers, registered_handover_date,
                 handover_year, status, escrow_compliant, litigations_reported,
-                quarterly_compliance_up_to_date, total_acres, clubhouse_sqft, open_space_pct
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                quarterly_compliance_up_to_date, total_acres, clubhouse_sqft, open_space_pct,
+                hero_image_url, gallery_images, walkthrough_video_url, drone_footage_url,
+                brochure_pdf_url, master_plan_url, cost_sheet_pdf_url, site_progress_photos
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 project_id, project_name, developer, rera_id, micro_market,
                 f"{developer} Projects Ltd", "GHMC / HMDA", 4,
                 f"31 Dec {handover_year}", handover_year, "Under Construction",
-                1, 0, 1, 10.0, 45000, 78.0
+                1, 0, 1, 10.0, 45000, 78.0,
+                hero_img, gallery_str, video, drone, brochure, master_plan, cost_sheet, site_photos_str
             )
         )
 
@@ -879,15 +896,17 @@ async def api_add_property(request: Request) -> JSONResponse:
                 super_built_up_sqft, carpet_area_sqft, balcony_sqft, balcony_facing,
                 has_morning_sunlight, base_rate_per_sqft, floor_rise_charges,
                 corner_premium_charges, clubhouse_charges, car_parking_slots,
-                car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr,
+                floor_plan_image_url
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 unit_id, project_id, tower, floor, bhk, facing, is_corner_unit,
                 super_built_up_sqft, carpet_area_sqft, balcony_sqft, balcony_facing,
                 has_morning_sunlight, base_rate_per_sqft, floor_rise_charges,
                 corner_premium_charges, clubhouse_charges, 2,
-                car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr
+                car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr,
+                floor_plan_img
             )
         )
         conn.commit()
@@ -1373,7 +1392,8 @@ async def get_project_detail(request: Request) -> JSONResponse:
         c.execute("""
             SELECT id, tower, floor, bhk, facing, is_corner_unit, super_built_up_sqft,
                    carpet_area_sqft, has_morning_sunlight, base_rate_per_sqft, total_price_cr,
-                   ROUND(CAST((carpet_area_sqft * 100.0) / super_built_up_sqft AS numeric), 1) as carpet_efficiency
+                   ROUND(CAST((carpet_area_sqft * 100.0) / super_built_up_sqft AS numeric), 1) as carpet_efficiency,
+                   floor_plan_image_url
             FROM units
             WHERE project_id = ?
             ORDER BY bhk, floor
@@ -1414,6 +1434,14 @@ async def update_project(request: Request) -> JSONResponse:
     micro_market = body.get("micro_market")
     rera_id = body.get("rera_id")
     handover_year = body.get("handover_year")
+    hero_image_url = body.get("hero_image_url")
+    gallery_images = body.get("gallery_images")
+    walkthrough_video_url = body.get("walkthrough_video_url")
+    drone_footage_url = body.get("drone_footage_url")
+    brochure_pdf_url = body.get("brochure_pdf_url")
+    master_plan_url = body.get("master_plan_url")
+    cost_sheet_pdf_url = body.get("cost_sheet_pdf_url")
+    site_progress_photos = body.get("site_progress_photos")
 
     with db.get_connection() as conn:
         c = conn.cursor()
@@ -1425,19 +1453,43 @@ async def update_project(request: Request) -> JSONResponse:
         params = []
         if name:
             updates.append("name = ?")
-            params.append(name.strip())
+            params.append(str(name).strip())
         if developer:
             updates.append("developer = ?")
-            params.append(developer.strip())
+            params.append(str(developer).strip())
         if micro_market:
             updates.append("micro_market = ?")
-            params.append(micro_market.strip())
+            params.append(str(micro_market).strip())
         if rera_id:
             updates.append("rera_id = ?")
-            params.append(rera_id.strip())
+            params.append(str(rera_id).strip())
         if handover_year:
             updates.append("handover_year = ?")
             params.append(int(handover_year))
+        if hero_image_url is not None:
+            updates.append("hero_image_url = ?")
+            params.append(str(hero_image_url).strip())
+        if gallery_images is not None:
+            updates.append("gallery_images = ?")
+            params.append(json.dumps(gallery_images) if isinstance(gallery_images, list) else str(gallery_images).strip())
+        if walkthrough_video_url is not None:
+            updates.append("walkthrough_video_url = ?")
+            params.append(str(walkthrough_video_url).strip())
+        if drone_footage_url is not None:
+            updates.append("drone_footage_url = ?")
+            params.append(str(drone_footage_url).strip())
+        if brochure_pdf_url is not None:
+            updates.append("brochure_pdf_url = ?")
+            params.append(str(brochure_pdf_url).strip())
+        if master_plan_url is not None:
+            updates.append("master_plan_url = ?")
+            params.append(str(master_plan_url).strip())
+        if cost_sheet_pdf_url is not None:
+            updates.append("cost_sheet_pdf_url = ?")
+            params.append(str(cost_sheet_pdf_url).strip())
+        if site_progress_photos is not None:
+            updates.append("site_progress_photos = ?")
+            params.append(json.dumps(site_progress_photos) if isinstance(site_progress_photos, list) else str(site_progress_photos).strip())
 
         if updates:
             params.append(project_id)
@@ -1696,6 +1748,31 @@ async def register_project_multi_unit(request: Request) -> JSONResponse:
     road_condition = str(data.get("road_condition", "Fully Paved/Bitumen")).strip()
     red_flag_notes = str(data.get("red_flag_notes", "")).strip()
 
+    hero_image_url = str(data.get("hero_image_url") or "").strip()
+    gallery_images = data.get("gallery_images") or []
+    if isinstance(gallery_images, list):
+        gallery_images_str = json.dumps(gallery_images)
+    else:
+        gallery_images_str = str(gallery_images).strip()
+
+    site_progress_photos = data.get("site_progress_photos") or []
+    if isinstance(site_progress_photos, list):
+        site_progress_photos_str = json.dumps(site_progress_photos)
+    else:
+        site_progress_photos_str = str(site_progress_photos).strip()
+
+    walkthrough_video_url = str(data.get("walkthrough_video_url") or "").strip()
+    drone_footage_url = str(data.get("drone_footage_url") or "").strip()
+    brochure_pdf_url = str(data.get("brochure_pdf_url") or "").strip()
+    master_plan_url = str(data.get("master_plan_url") or "").strip()
+    cost_sheet_pdf_url = str(data.get("cost_sheet_pdf_url") or "").strip()
+
+    if not hero_image_url:
+        if isinstance(gallery_images, list) and gallery_images and gallery_images[0]:
+            hero_image_url = gallery_images[0]
+        elif isinstance(site_progress_photos, list) and site_progress_photos and site_progress_photos[0]:
+            hero_image_url = site_progress_photos[0]
+
     created_units = []
     with db.get_connection() as conn:
         cursor = conn.cursor()
@@ -1719,8 +1796,10 @@ async def register_project_multi_unit(request: Request) -> JSONResponse:
                 quarterly_compliance_up_to_date, total_acres, clubhouse_sqft, open_space_pct,
                 verification_status, tagline, project_type, official_url, is_rera_registered,
                 total_units, road_width_feet, water_source, assigned_badge, auditor_id,
-                latitude, longitude, construction_stage, road_condition, red_flag_notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                latitude, longitude, construction_stage, road_condition, red_flag_notes,
+                hero_image_url, gallery_images, walkthrough_video_url, drone_footage_url,
+                brochure_pdf_url, master_plan_url, cost_sheet_pdf_url, site_progress_photos
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 project_id, project_name, developer, rera_id, micro_market,
@@ -1729,7 +1808,9 @@ async def register_project_multi_unit(request: Request) -> JSONResponse:
                 1, 0, 1, total_acres, clubhouse_sqft, open_space_pct,
                 v_status, tagline, project_type, official_url, is_rera,
                 total_units, road_width_feet, water_source, v_status, auditor_id,
-                latitude, longitude, construction_stage, road_condition, red_flag_notes
+                latitude, longitude, construction_stage, road_condition, red_flag_notes,
+                hero_image_url, gallery_images_str, walkthrough_video_url, drone_footage_url,
+                brochure_pdf_url, master_plan_url, cost_sheet_pdf_url, site_progress_photos_str
             )
         )
 
@@ -1747,6 +1828,7 @@ async def register_project_multi_unit(request: Request) -> JSONResponse:
             base_cost = super_built_up_sqft * base_rate_per_sqft
             total_price_cr = round((base_cost * 1.05) / 10000000.0, 2)
             unit_id = f"{proj_prefix}-{id_suffix}-T1-{idx + 1:02d}01"
+            floor_plan_img = str(u.get("floor_plan_image_url") or "").strip()
 
             cursor.execute(
                 """
@@ -1755,15 +1837,16 @@ async def register_project_multi_unit(request: Request) -> JSONResponse:
                     super_built_up_sqft, carpet_area_sqft, balcony_sqft, balcony_facing,
                     has_morning_sunlight, base_rate_per_sqft, floor_rise_charges,
                     corner_premium_charges, clubhouse_charges, car_parking_slots,
-                    car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr,
+                    floor_plan_image_url
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     unit_id, project_id, "Tower 1", idx + 1, bhk, facing, is_corner_unit,
                     super_built_up_sqft, carpet_area_sqft, balcony_sqft, balcony_facing,
                     has_morning_sunlight, base_rate_per_sqft, 0, 250000 if is_corner_unit else 0,
                     400000, 2, 500000, 300000,
-                    int(total_price_cr * 10000000), total_price_cr
+                    int(total_price_cr * 10000000), total_price_cr, floor_plan_img
                 )
             )
             created_units.append({"unit_id": unit_id, "bhk": bhk, "total_price_cr": total_price_cr})

@@ -89,7 +89,30 @@ class PostgresCursorWrapper:
                 quarterly_compliance_up_to_date = EXCLUDED.quarterly_compliance_up_to_date, 
                 total_acres = EXCLUDED.total_acres, 
                 clubhouse_sqft = EXCLUDED.clubhouse_sqft, 
-                open_space_pct = EXCLUDED.open_space_pct"""
+                open_space_pct = EXCLUDED.open_space_pct,
+                verification_status = EXCLUDED.verification_status,
+                tagline = EXCLUDED.tagline,
+                project_type = EXCLUDED.project_type,
+                official_url = EXCLUDED.official_url,
+                is_rera_registered = EXCLUDED.is_rera_registered,
+                total_units = EXCLUDED.total_units,
+                road_width_feet = EXCLUDED.road_width_feet,
+                water_source = EXCLUDED.water_source,
+                assigned_badge = EXCLUDED.assigned_badge,
+                auditor_id = EXCLUDED.auditor_id,
+                latitude = EXCLUDED.latitude,
+                longitude = EXCLUDED.longitude,
+                construction_stage = EXCLUDED.construction_stage,
+                road_condition = EXCLUDED.road_condition,
+                red_flag_notes = EXCLUDED.red_flag_notes,
+                hero_image_url = EXCLUDED.hero_image_url,
+                gallery_images = EXCLUDED.gallery_images,
+                walkthrough_video_url = EXCLUDED.walkthrough_video_url,
+                drone_footage_url = EXCLUDED.drone_footage_url,
+                brochure_pdf_url = EXCLUDED.brochure_pdf_url,
+                master_plan_url = EXCLUDED.master_plan_url,
+                cost_sheet_pdf_url = EXCLUDED.cost_sheet_pdf_url,
+                site_progress_photos = EXCLUDED.site_progress_photos"""
         elif "INSERT OR REPLACE INTO units" in adapted_q:
             adapted_q = adapted_q.replace(
                 "INSERT OR REPLACE INTO units",
@@ -113,7 +136,8 @@ class PostgresCursorWrapper:
                 car_parking_charges = EXCLUDED.car_parking_charges, 
                 infra_charges = EXCLUDED.infra_charges, 
                 total_out_the_door_inr = EXCLUDED.total_out_the_door_inr, 
-                total_price_cr = EXCLUDED.total_price_cr"""
+                total_price_cr = EXCLUDED.total_price_cr,
+                floor_plan_image_url = EXCLUDED.floor_plan_image_url"""
         elif "INSERT OR REPLACE INTO user_saved_units" in adapted_q:
             adapted_q = adapted_q.replace(
                 "INSERT OR REPLACE INTO user_saved_units",
@@ -309,6 +333,15 @@ class Database:
                         ALTER TABLE projects ADD COLUMN IF NOT EXISTS construction_stage TEXT;
                         ALTER TABLE projects ADD COLUMN IF NOT EXISTS road_condition TEXT;
                         ALTER TABLE projects ADD COLUMN IF NOT EXISTS red_flag_notes TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS hero_image_url TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS gallery_images TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS walkthrough_video_url TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS drone_footage_url TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS brochure_pdf_url TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS master_plan_url TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS cost_sheet_pdf_url TEXT;
+                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS site_progress_photos TEXT;
+                        ALTER TABLE units ADD COLUMN IF NOT EXISTS floor_plan_image_url TEXT;
                         UPDATE projects SET verification_status = 'Verified' WHERE verification_status IS NULL;
                     """)
                     # Ensure B-RISE intent scoring columns exist
@@ -389,10 +422,24 @@ class Database:
                     ("construction_stage", "TEXT", "NULL"),
                     ("road_condition", "TEXT", "NULL"),
                     ("red_flag_notes", "TEXT", "NULL"),
+                    ("hero_image_url", "TEXT", "NULL"),
+                    ("gallery_images", "TEXT", "NULL"),
+                    ("walkthrough_video_url", "TEXT", "NULL"),
+                    ("drone_footage_url", "TEXT", "NULL"),
+                    ("brochure_pdf_url", "TEXT", "NULL"),
+                    ("master_plan_url", "TEXT", "NULL"),
+                    ("cost_sheet_pdf_url", "TEXT", "NULL"),
+                    ("site_progress_photos", "TEXT", "NULL"),
                 ]:
                     if p_cols and col_name not in p_cols:
                         cursor.execute(f"ALTER TABLE projects ADD COLUMN {col_name} {col_type} DEFAULT {col_def}")
                 cursor.execute("UPDATE projects SET verification_status = 'Verified' WHERE verification_status IS NULL")
+
+                cursor.execute("PRAGMA table_info(units)")
+                unit_cols = [c[1] for c in cursor.fetchall()]
+                if unit_cols and "floor_plan_image_url" not in unit_cols:
+                    cursor.execute("ALTER TABLE units ADD COLUMN floor_plan_image_url TEXT")
+
                 conn.commit()
                 
                 # Ensure all verified inventory and latest seed data are synced
@@ -400,15 +447,28 @@ class Database:
                 self.seed_telemetry_and_buyers(conn)
 
     def seed_database(self, conn) -> None:
+        from four_corner.media import find_project_media
         for prj in PROJECTS_DATA:
+            m = find_project_media(prj["name"])
+            hero = m.get("hero_image_url")
+            gallery = json.dumps(m.get("gallery_images", []))
+            video = m.get("walkthrough_video_url")
+            drone = m.get("drone_footage_url")
+            brochure = m.get("brochure_pdf_url")
+            plan = m.get("master_plan_url")
+            cost = m.get("cost_sheet_pdf_url")
+            site_p = json.dumps(m.get("site_progress_photos", []))
+
             conn.execute(
                 """
                 INSERT OR REPLACE INTO projects (
                     id, name, developer, rera_id, micro_market, promoter_legal_entity,
                     sanctioning_authority, approved_towers, registered_handover_date,
                     handover_year, status, escrow_compliant, litigations_reported,
-                    quarterly_compliance_up_to_date, total_acres, clubhouse_sqft, open_space_pct
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    quarterly_compliance_up_to_date, total_acres, clubhouse_sqft, open_space_pct,
+                    hero_image_url, gallery_images, walkthrough_video_url, drone_footage_url,
+                    brochure_pdf_url, master_plan_url, cost_sheet_pdf_url, site_progress_photos
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     prj["id"], prj["name"], prj["developer"], prj["rera_id"],
@@ -417,7 +477,8 @@ class Database:
                     prj["registered_handover_date"], prj["handover_year"],
                     prj["status"], prj["escrow_compliant"],
                     prj["litigations_reported"], prj["quarterly_compliance_up_to_date"],
-                    prj["total_acres"], prj["clubhouse_sqft"], prj["open_space_pct"]
+                    prj["total_acres"], prj["clubhouse_sqft"], prj["open_space_pct"],
+                    hero, gallery, video, drone, brochure, plan, cost, site_p
                 )
             )
 
@@ -433,6 +494,7 @@ class Database:
                 gst = int(subtotal * 0.05)
                 total_inr = subtotal + gst
                 total_cr = round(total_inr / 10000000.0, 2)
+                u_floor_plan = (m.get("unit_floor_plans") or {}).get(u["id"]) or (m.get("unit_floor_plans") or {}).get("default")
 
                 conn.execute(
                     """
@@ -441,15 +503,17 @@ class Database:
                         super_built_up_sqft, carpet_area_sqft, balcony_sqft, balcony_facing,
                         has_morning_sunlight, base_rate_per_sqft, floor_rise_charges,
                         corner_premium_charges, clubhouse_charges, car_parking_slots,
-                        car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        car_parking_charges, infra_charges, total_out_the_door_inr, total_price_cr,
+                        floor_plan_image_url
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         u["id"], prj["id"], u["tower"], u["floor"], u["bhk"], u["facing"],
                         u["is_corner_unit"], u["super_built_up_sqft"], u["carpet_area_sqft"],
                         u["balcony_sqft"], u["balcony_facing"], u["has_morning_sunlight"],
                         u["base_rate_per_sqft"], floor_rise, corner_prem, clubhouse,
-                        2, car_parking, infra, total_inr, total_cr
+                        2, car_parking, infra, total_inr, total_cr,
+                        u_floor_plan
                     )
                 )
 
@@ -620,7 +684,13 @@ class Database:
                 u.balcony_facing,
                 u.has_morning_sunlight,
                 u.total_price_cr,
-                u.total_out_the_door_inr
+                u.total_out_the_door_inr,
+                p.hero_image_url,
+                p.walkthrough_video_url,
+                p.drone_footage_url,
+                p.brochure_pdf_url,
+                p.master_plan_url,
+                u.floor_plan_image_url
             FROM units u
             JOIN projects p ON u.project_id = p.id
             WHERE 1=1
@@ -714,6 +784,27 @@ class Database:
                 WHERE LOWER(rera_id) = LOWER(?) OR LOWER(name) LIKE LOWER(?)
                 """,
                 (project_or_rera.strip(), f"%{project_or_rera.strip()}%")
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return dict(row)
+
+    def get_project_media(self, project_id_or_name: str) -> Optional[Dict[str, Any]]:
+        """Retrieve media assets stored in database for a project."""
+        clean_target = project_id_or_name.strip()
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, name, developer, micro_market, rera_id,
+                       hero_image_url, gallery_images, walkthrough_video_url, drone_footage_url,
+                       brochure_pdf_url, master_plan_url, cost_sheet_pdf_url, site_progress_photos
+                FROM projects
+                WHERE LOWER(id) = LOWER(?) OR LOWER(name) LIKE LOWER(?) OR LOWER(rera_id) = LOWER(?)
+                LIMIT 1
+                """,
+                (clean_target, f"%{clean_target}%", clean_target)
             )
             row = cursor.fetchone()
             if not row:

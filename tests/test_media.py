@@ -115,3 +115,81 @@ def test_rest_media_api_endpoints():
     resp3 = client.get("/assets/tower_exterior.jpg")
     assert resp3.status_code == 200
     assert resp3.headers["content-type"].startswith("image/")
+
+
+def test_sahith_home_media_and_interactive_tile():
+    """Verify Sahith Home media retrieval and interactive media tile HTML with slider, zoom, and video."""
+    res = get_project_media("Sahith Home")
+    assert res["status"] == "success"
+    assert res["project_name"] == "Sahith Home"
+    media = res["media"]
+    assert media["hero_image_url"] is not None
+    assert len(media["gallery_images"]) >= 3
+    assert media["walkthrough_video_url"] is not None
+    assert media["drone_footage_url"] is not None
+    assert media["brochure_pdf_url"] is not None
+    assert media["master_plan_url"] is not None
+    assert len(media["site_progress_photos"]) >= 1
+
+    tile_html = res.get("media_tile_html", "")
+    assert len(tile_html) > 500
+    # Slide controls
+    assert "fcNextSlide_" in tile_html
+    assert "fcPrevSlide_" in tile_html
+    assert "fcSelectSlide_" in tile_html
+    # Zoom controls
+    assert "fcOpenZoom_" in tile_html
+    assert "fcZoomIn_" in tile_html
+    assert "fcZoomOut_" in tile_html
+    assert "fcZoomReset_" in tile_html
+    # Video player
+    assert "iframe" in tile_html
+    assert "Walkthrough" in tile_html
+
+
+def test_register_project_persists_media_and_floor_plans():
+    """Verify that registering a project with media preserves all images, videos, and blueprints."""
+    client = TestClient(app)
+    payload = {
+        "project_name": "Test Luxury Heights",
+        "developer": "Prestige Group",
+        "micro_market": "Kokapet",
+        "rera_id": "P02400998877",
+        "handover_year": 2027,
+        "hero_image_url": "https://example.com/hero.jpg",
+        "gallery_images": ["https://example.com/img1.jpg", "https://example.com/img2.jpg"],
+        "walkthrough_video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "drone_footage_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "brochure_pdf_url": "https://example.com/brochure.pdf",
+        "master_plan_url": "https://example.com/master_plan.png",
+        "cost_sheet_pdf_url": "https://example.com/cost_sheet.pdf",
+        "site_progress_photos": ["https://example.com/site1.jpg"],
+        "units": [
+            {
+                "bhk": 3.0,
+                "facing": "East",
+                "super_built_up_sqft": 2000,
+                "carpet_area_sqft": 1500,
+                "floor_plan_image_url": "https://example.com/unit_blueprint.jpg"
+            }
+        ]
+    }
+    reg_resp = client.post("/api/v1/projects/register", json=payload)
+    assert reg_resp.status_code == 200
+    project_id = reg_resp.json()["project_id"]
+
+    # Verify via media endpoint
+    media_resp = client.get(f"/api/v1/properties/media/{project_id}")
+    assert media_resp.status_code == 200
+    m_data = media_resp.json()
+    assert m_data["media"]["hero_image_url"] == "https://example.com/hero.jpg"
+    assert "https://example.com/img1.jpg" in m_data["media"]["gallery_images"]
+    assert m_data["media"]["master_plan_url"] == "https://example.com/master_plan.png"
+
+    # Verify unit floor plan
+    detail_resp = client.get(f"/api/v1/projects/{project_id}")
+    assert detail_resp.status_code == 200
+    p_units = detail_resp.json()["project"]["units"]
+    assert len(p_units) == 1
+    assert p_units[0]["floor_plan_image_url"] == "https://example.com/unit_blueprint.jpg"
+

@@ -294,6 +294,39 @@ PROJECTS_MEDIA_REGISTRY: Dict[str, Dict[str, Any]] = {
             "JAY-T3-2501": "/assets/floor_plan_blueprint.jpg",
         }
     },
+    "prj_sah_16751": {
+        "project_id": "prj_sah_16751",
+        "project_name": "Sahith Home",
+        "developer": "Sahith",
+        "micro_market": "Manikonda",
+        "rera_id": "P00909098668777",
+        "hero_image_url": "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1600&q=80",
+        "local_hero_image": "/assets/luxury_tower.jpg",
+        "gallery_images": [
+            "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1600&q=80",
+            "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1600&q=80",
+            "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1600&q=80",
+            "https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=1600&q=80",
+            "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80",
+            "https://images.unsplash.com/photo-1600573472550-8090b5e0745e?auto=format&fit=crop&w=1600&q=80"
+        ],
+        "walkthrough_video_url": "https://www.youtube.com/watch?v=F3zW6WJ3q6w",
+        "drone_footage_url": "https://www.youtube.com/watch?v=kY31Fz8r7s4",
+        "construction_update_video_url": "https://www.youtube.com/watch?v=F3zW6WJ3q6w",
+        "brochure_pdf_url": "https://four-corner-mcp.onrender.com/assets/sahith_home_luxury_villas_brochure.pdf",
+        "rera_certificate_url": "https://rera.telangana.gov.in/certificates/P00909098668777.pdf",
+        "master_plan_url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80",
+        "cost_sheet_pdf_url": "https://four-corner-mcp.onrender.com/assets/sahith_home_official_cost_sheet.pdf",
+        "site_progress_photos": [
+            "https://images.unsplash.com/photo-1541888946425-d0fbb186156f?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1200&q=80",
+            "https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=1200&q=80"
+        ],
+        "unit_floor_plans": {
+            "default": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80",
+            "SAH-16751-T1-0101": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80"
+        }
+    },
 }
 
 GENERIC_MEDIA_FALLBACK = {

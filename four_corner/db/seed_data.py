@@ -762,5 +762,58 @@ PROJECTS_DATA = [
             ("Kokapet SEZ", 9.2, 14, 22, 26, "Via Gopanpally-Kollur Link", ["ORR Exit 2"], "Direct bypass link"),
             ("RGIA Airport", 35.0, 32, 40, 45, "Via ORR Gachibowli Ramp", ["Shamshabad Toll"], "Full expressway access"),
         ]
+    },
+    {
+        "id": "prj_sah_16751",
+        "name": "Sahith Home",
+        "developer": "Sahith",
+        "rera_id": "P00909098668777",
+        "micro_market": "Manikonda",
+        "promoter_legal_entity": "Sahith Projects Ltd",
+        "sanctioning_authority": "GHMC / HMDA",
+        "approved_towers": 10,
+        "registered_handover_date": "2027-12-31",
+        "handover_year": 2027,
+        "status": "Under Construction",
+        "escrow_compliant": 1,
+        "litigations_reported": 0,
+        "quarterly_compliance_up_to_date": 1,
+        "total_acres": 20.0,
+        "clubhouse_sqft": 45000,
+        "open_space_pct": 50.0,
+        "units": [
+            {
+                "id": "SAH-16751-T1-0101",
+                "tower": "Tower 1",
+                "floor": 1,
+                "bhk": 5.0,
+                "facing": "East",
+                "is_corner_unit": 0,
+                "super_built_up_sqft": 10000,
+                "carpet_area_sqft": 6000,
+                "balcony_sqft": 300,
+                "balcony_facing": "East",
+                "has_morning_sunlight": 1,
+                "base_rate_per_sqft": 2000,
+                "floor_rise_charges": 0,
+                "corner_premium_charges": 0,
+                "rooms": [
+                    ("Grand Living Pavilion", "24'0\" x 18'0\"", 432.0, "East"),
+                    ("Formal Dining Lounge", "18'0\" x 14'0\"", 252.0, "North"),
+                    ("Master Suite & Lounge", "20'0\" x 16'0\"", 320.0, "East"),
+                    ("Guest Villa Suite", "16'0\" x 14'0\"", 224.0, "West"),
+                    ("Italian Modular Kitchen", "16'0\" x 12'0\"", 192.0, "South-East"),
+                ],
+                "balconies": [
+                    ("Private Lawn & Morning Deck", "30'0\" x 10'0\"", "East", 1),
+                ]
+            }
+        ],
+        "commutes": [
+            ("ADP Gachibowli", 8.2, 16, 28, 32, "Lanco Hills Road / Old Mumbai Highway", ["Lanco Hills Junction", "Khajaguda Junction"], "Moderate rush hour at Khajaguda"),
+            ("HITEC City Cyber Towers", 9.5, 20, 35, 40, "Shaikpet Flyover / Durgam Cheruvu", ["Shaikpet Junction", "Mindspace Junction"], "Fast transit via Shaikpet flyover"),
+            ("Financial District (Wipro Circle)", 9.0, 18, 30, 35, "Khajaguda - Nanakramguda ORR Spur", ["Khajaguda Circle", "WaveRock Junction"], "Direct ORR spur road"),
+            ("RGIA Airport", 28.5, 30, 40, 42, "Neopolis ORR Exit 18", ["ORR Nanakramguda Entry", "Rajendranagar Toll"], "Direct expressway access"),
+        ]
     }
 ]

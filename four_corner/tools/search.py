@@ -42,6 +42,11 @@ def search_verified_properties(
         p_media = find_project_media(r["project_name"])
         u_media = get_unit_floor_plan_media(r["project_name"], r["unit_id"])
 
+        hero_img = r.get("hero_image_url") or p_media.get("hero_image_url")
+        floor_plan_img = r.get("floor_plan_image_url") or u_media.get("floor_plan_image_url")
+        video_url = r.get("walkthrough_video_url") or p_media.get("walkthrough_video_url")
+        brochure_url = r.get("brochure_pdf_url") or p_media.get("brochure_pdf_url")
+
         results.append(
             UnitSearchResult(
                 unit_id=r["unit_id"],
@@ -57,10 +62,10 @@ def search_verified_properties(
                 total_price_cr=r["total_price_cr"],
                 handover_date=r["handover_date"],
                 rera_id=r["rera_id"],
-                hero_image_url=p_media.get("hero_image_url"),
-                floor_plan_image_url=u_media.get("floor_plan_image_url"),
-                walkthrough_video_url=p_media.get("walkthrough_video_url"),
-                brochure_pdf_url=p_media.get("brochure_pdf_url"),
+                hero_image_url=hero_img,
+                floor_plan_image_url=floor_plan_img,
+                walkthrough_video_url=video_url,
+                brochure_pdf_url=brochure_url,
             ).model_dump()
         )
 
