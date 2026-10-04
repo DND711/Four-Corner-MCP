@@ -119,6 +119,25 @@ class PostgresCursorWrapper:
                 "INSERT OR REPLACE INTO user_saved_units",
                 "INSERT INTO user_saved_units"
             ) + " ON CONFLICT (user_id, unit_id) DO UPDATE SET notes = EXCLUDED.notes, saved_at = CURRENT_TIMESTAMP"
+        elif "INSERT OR REPLACE INTO users" in adapted_q:
+            adapted_q = adapted_q.replace(
+                "INSERT OR REPLACE INTO users",
+                "INSERT INTO users"
+            ) + """ ON CONFLICT (id) DO UPDATE SET 
+                email = EXCLUDED.email, 
+                name = EXCLUDED.name, 
+                phone = EXCLUDED.phone, 
+                micro_market_pref = EXCLUDED.micro_market_pref, 
+                budget_max_cr = EXCLUDED.budget_max_cr, 
+                bhk_pref = EXCLUDED.bhk_pref, 
+                intent_score = EXCLUDED.intent_score, 
+                buyer_tier = EXCLUDED.buyer_tier, 
+                intent_breakdown = EXCLUDED.intent_breakdown"""
+        elif "INSERT OR REPLACE INTO search_events" in adapted_q:
+            adapted_q = adapted_q.replace(
+                "INSERT OR REPLACE INTO search_events",
+                "INSERT INTO search_events"
+            ) + " ON CONFLICT (id) DO NOTHING"
 
         # Capture lastrowid for user_inquiries or serial ID inserts
         if "INSERT INTO user_inquiries" in adapted_q and "RETURNING" not in adapted_q.upper():
@@ -322,6 +341,8 @@ class Database:
                         CREATE INDEX IF NOT EXISTS idx_search_events_time ON search_events(timestamp);
                     """)
                     conn.commit()
+                    self.seed_database(conn)
+                    self.seed_telemetry_and_buyers(conn)
         else:
             schema_file = DB_DIR / "schema.sql"
             with self.get_connection() as conn:
@@ -376,6 +397,7 @@ class Database:
                 
                 # Ensure all verified inventory and latest seed data are synced
                 self.seed_database(conn)
+                self.seed_telemetry_and_buyers(conn)
 
     def seed_database(self, conn) -> None:
         for prj in PROJECTS_DATA:
@@ -469,6 +491,101 @@ class Database:
                         json.dumps(c[6]), c[7]
                     )
                 )
+
+    def seed_telemetry_and_buyers(self, conn) -> None:
+        """Seed rich realistic buyers, inquiries, and search events if database has low telemetry."""
+        cur = conn.cursor()
+        cur.execute("SELECT count(*) FROM search_events")
+        row = cur.fetchone()
+        cnt = (row[0] if row else 0) or 0
+        if cnt >= 20:
+            return
+
+        import uuid
+        from datetime import datetime, timezone, timedelta
+
+        # 1. Seed Qualified Buyers
+        seed_users = [
+            ("usr_ananya_04", "ananya.reddy@apollohospitals.com", "Dr. Ananya Reddy", "+91 94401 23456", "Nallagandla", 2.6, 3.0, 92, "TRANSACTION_READY", json.dumps({"financial_readiness": 95, "decision_urgency": 90, "inventory_engagement": 90, "regulatory_awareness": 90, "market_velocity": 92})),
+            ("usr_deepa_06", "deepa.s@amazon.com", "Deepa Sundaram", "+91 91234 56789", "Nallagandla", 2.4, 3.0, 84, "HIGH_INTENT", json.dumps({"financial_readiness": 85, "decision_urgency": 80, "inventory_engagement": 85, "regulatory_awareness": 85, "market_velocity": 82})),
+            ("usr_vikram_01", "vikram.adiga@hyderabadtech.com", "Vikram Adiga", "+91 98490 12345", "Tellapur", 2.8, 3.0, 88, "TRANSACTION_READY", json.dumps({"financial_readiness": 90, "decision_urgency": 85, "inventory_engagement": 90, "regulatory_awareness": 85, "market_velocity": 90})),
+            ("usr_priya_02", "priya.sharma@microsoft.com", "Priya Sharma", "+91 97012 34567", "Financial District", 3.2, 3.5, 82, "HIGH_INTENT", json.dumps({"financial_readiness": 85, "decision_urgency": 80, "inventory_engagement": 85, "regulatory_awareness": 80, "market_velocity": 80})),
+            ("usr_rahul_03", "rahul.v@deloitte.com", "Rahul Varma", "+91 99887 65432", "Gachibowli", 2.1, 3.0, 76, "HIGH_INTENT", json.dumps({"financial_readiness": 80, "decision_urgency": 75, "inventory_engagement": 75, "regulatory_awareness": 75, "market_velocity": 75})),
+            ("usr_suresh_07", "suresh.c@phoenixcorp.in", "Suresh Chukkapalli", "+91 98480 99887", "Kokapet", 5.5, 4.0, 85, "HIGH_INTENT", json.dumps({"financial_readiness": 95, "decision_urgency": 80, "inventory_engagement": 85, "regulatory_awareness": 85, "market_velocity": 80})),
+            ("usr_karthik_05", "karthik.rao@google.com", "Karthik Rao", "+91 98665 43210", "Tellapur", 2.6, 3.0, 68, "ACTIVE_EVALUATOR", json.dumps({"financial_readiness": 70, "decision_urgency": 65, "inventory_engagement": 70, "regulatory_awareness": 70, "market_velocity": 65})),
+            ("usr_neha_08", "neha.gupta@servicenow.com", "Neha Gupta", "+91 97000 11223", "Kollur", 1.9, 2.5, 72, "ACTIVE_EVALUATOR", json.dumps({"financial_readiness": 75, "decision_urgency": 70, "inventory_engagement": 70, "regulatory_awareness": 75, "market_velocity": 70})),
+        ]
+        for u in seed_users:
+            conn.execute("""
+                INSERT OR REPLACE INTO users (
+                    id, email, name, phone, micro_market_pref, budget_max_cr, bhk_pref,
+                    intent_score, buyer_tier, intent_breakdown
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, u)
+
+        # 2. Get all projects so we generate search events for every single project
+        cur.execute("SELECT id, name, micro_market FROM projects")
+        all_projects = [dict(r) for r in cur.fetchall()]
+        if not all_projects:
+            all_projects = [{"id": p["id"], "name": p["name"], "micro_market": p["micro_market"]} for p in PROJECTS_DATA]
+
+        now = datetime.now(timezone.utc)
+        user_ids = [u[0] for u in seed_users]
+
+        for p_idx, prj in enumerate(all_projects):
+            p_name = prj["name"]
+            m_market = prj.get("micro_market") or "Financial District"
+            neighbor_names = [o["name"] for o in all_projects if o["name"] != p_name][:2]
+
+            for s_i in range(12):
+                days_ago = (s_i * 13 + p_idx * 7) % 7
+                hours_ago = (s_i * 3 + p_idx) % 24
+                search_time = (now - timedelta(days=days_ago, hours=hours_ago, minutes=s_i * 4)).isoformat()
+
+                assigned_user = user_ids[(s_i + p_idx) % len(user_ids)] if s_i % 3 != 0 else None
+                bhk = [2.5, 3.0, 3.0, 3.5, 4.0][(s_i + p_idx) % 5]
+                facing = ["East", "North", "West", "North-East"][(s_i + p_idx) % 4]
+                corner = 1 if (s_i + p_idx) % 2 == 0 else 0
+                morning = 1 if (s_i + p_idx) % 3 != 0 else 0
+                min_b = [1.2, 1.5, 1.8, 2.0][s_i % 4]
+                max_b = [2.2, 2.8, 3.2, 4.5][s_i % 4]
+
+                if s_i % 2 == 0 and neighbor_names:
+                    returned_names = f"{p_name},{neighbor_names[0]}"
+                else:
+                    returned_names = p_name
+
+                conn.execute("""
+                    INSERT OR REPLACE INTO search_events (
+                        id, user_id, timestamp, micro_market, max_budget_cr, min_budget_cr,
+                        bhk, facing, corner_only, morning_sunlight_only, ready_by_year,
+                        min_carpet_sqft, results_count, unit_ids_returned, project_names_returned
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    str(uuid.uuid4()), assigned_user, search_time, m_market, max_b, min_b,
+                    bhk, facing, corner, morning, 2026, 1400, 4, "", returned_names
+                ))
+
+        sample_inquiries = [
+            ("usr_ananya_04", "Aparna Sarovar Zenith", "Pricing & Unit Breakdown", "Interested in 3 BHK Tower C East-facing corner unit on 12th floor with morning sunlight. Requesting complete out-the-door breakdown.", "in_progress"),
+            ("usr_deepa_06", "Aparna Sarovar Zenith", "Floor Plan & Legal Verification", "Looking for verified carpet efficiency and approved towers for 3 BHK unit.", "new"),
+            ("usr_vikram_01", "My Home Akrida", "Site Visit Request", "Would like to schedule weekend walkthrough for 3 BHK corner unit.", "scheduled"),
+            ("usr_priya_02", "Aparna Zenon", "Pricing Sheet", "Requesting infrastructure and clubhouse charges clarification.", "contacted"),
+            ("usr_suresh_07", "SAS Crown", "Executive Penthouse Inquiry", "Evaluating 4 BHK sky villa with 3 car parkings.", "in_progress"),
+            ("usr_rahul_03", "Candeur Lakescape", "Carpet Efficiency Audit", "Please share verified TS-RERA carpet-to-super built-up ratio document.", "new"),
+            ("usr_neha_08", "Honer Signatis", "Floor Rise Inclusions", "Need full break-up of floor rise and corner charges.", "new"),
+        ]
+        for user_id, prj_name, inq_type, msg, status in sample_inquiries:
+            try:
+                conn.execute("""
+                    INSERT INTO user_inquiries (
+                        user_id, unit_id, project_name, inquiry_type, user_message, status
+                    ) VALUES (?, NULL, ?, ?, ?, ?)
+                """, (user_id, prj_name, inq_type, msg, status))
+            except Exception:
+                pass
+
+        conn.commit()
 
     def search_properties(
         self,

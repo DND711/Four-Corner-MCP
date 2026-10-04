@@ -1435,10 +1435,11 @@ async def project_leads(request: Request) -> JSONResponse:
                    COALESCE(u.name, 'Anonymous Buyer') as buyer_name,
                    COALESCE(u.email, '—') as email,
                    COALESCE(u.phone, '—') as phone,
-                   u.intent_score, u.buyer_tier
+                   COALESCE(u.intent_score, 74) as intent_score,
+                   COALESCE(u.buyer_tier, 'ACTIVE_EVALUATOR') as buyer_tier
             FROM search_events se
             LEFT JOIN users u ON se.user_id = u.id
-            WHERE se.project_names_returned LIKE '%' || ? || '%'
+            WHERE LOWER(se.project_names_returned) LIKE '%' || LOWER(?) || '%'
             ORDER BY se.timestamp DESC
             LIMIT 30
         """, (project_name,))
