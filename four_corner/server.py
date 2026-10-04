@@ -26,6 +26,7 @@ from four_corner.tools.floor_plans import get_architectural_floor_plan
 from four_corner.tools.pricing import get_transparent_pricing_breakdown, compare_properties
 from four_corner.tools.commute import calculate_rush_hour_commute
 from four_corner.tools.rera import verify_rera_filing
+from four_corner.tools.media import get_project_multimedia, get_project_official_brochure
 from four_corner.auth import (
     get_or_create_user,
     create_authorization_code,
@@ -47,6 +48,11 @@ CORE OPERATING DIRECTIVES:
 4. TRUE USABLE CARPET AREAS: Always report actual usable indoor carpet area and usability efficiency percentage, rejecting inflated super built-up math.
 5. UNBUNDLED BUILDER PRICING: When asked about costs, call `get_pricing_breakdown` to show the full transparent builder cost sheet (Base Cost + Floor Rise + Corner Premium + Parking + Clubhouse + Infra + GST) with zero broker markups.
 6. PRESENTATION & ZERO RAW JSON: NEVER output raw JSON, parameter payloads, or code blocks (such as `{"unit_id": ...}`) in your chat text. Execute all tool calls invisibly in the background, and present the final answer to the user in clean, human-readable conversational formatting, bullet points, and elegant Markdown tables.
+7. MULTIMEDIA & VISUAL EVIDENCE (IMAGES, VIDEOS, BROCHURES): Always deliver visual proof to the user:
+   - Provide high-resolution exterior images (`hero_image_url`) and architectural floor plan blueprints (`floor_plan_image_url`).
+   - Include direct links to 4K 3D interactive virtual walkthrough tours (`walkthrough_video_url`) and aerial drone surveys (`drone_footage_url`).
+   - Deliver verified official developer e-brochure download links (`brochure_pdf_url`) and TS-RERA sanction certificates (`rera_certificate_url`).
+   - Call `get_project_media` or `get_project_brochure` whenever a buyer requests brochures, videos, photos, or visual tours.
 """
 
 # Initialize MCP Server & Database
@@ -329,6 +335,42 @@ def get_user_portfolio(buyer_email: str) -> Dict[str, Any]:
         "saved_units": saved,
         "inquiries": inquiries
     }
+
+
+@server.tool()
+def get_project_media(project_name_or_id: str) -> Dict[str, Any]:
+    """Retrieve verified multimedia assets for any Hyderabad residential project.
+    Transmits high-resolution elevation photos, 4K 3D interactive virtual tours,
+    drone aerial connectivity footage, construction progress photos, and official builder brochures.
+
+    Args:
+        project_name_or_id: Project name or ID (e.g. 'Aparna Sarovar Zenith', 'My Home Akrida', 'Candeur Lakescape')
+    """
+    return get_project_multimedia(db=db, project_name_or_id=project_name_or_id)
+
+
+@server.tool()
+def get_project_brochure(project_name_or_id: str) -> Dict[str, Any]:
+    """Retrieve and download verified developer sales e-brochure, sanctioned building plans, and TS-RERA filings.
+
+    Args:
+        project_name_or_id: Project name or ID (e.g. 'Aparna Sarovar Zenith', 'Candeur Lakescape', 'Aparna Zenon')
+    """
+    return get_project_official_brochure(db=db, project_name_or_id=project_name_or_id)
+
+
+@server.resource("fourcorner://projects/{project_id}/media")
+def project_media_resource(project_id: str) -> str:
+    """Read full multimedia manifest for a project."""
+    import json
+    return json.dumps(get_project_multimedia(db=db, project_name_or_id=project_id), indent=2)
+
+
+@server.resource("fourcorner://projects/{project_id}/brochure")
+def project_brochure_resource(project_id: str) -> str:
+    """Read official brochure and sanction document links for a project."""
+    import json
+    return json.dumps(get_project_official_brochure(db=db, project_name_or_id=project_id), indent=2)
 
 
 # ==========================================
@@ -736,6 +778,22 @@ async def api_rera(request: Request) -> JSONResponse:
         if auth_user:
             record_user_audit(user_id=auth_user["id"], tool_name="verify_rera_status", query_summary=f"RERA check: {query}")
 
+    return JSONResponse(result)
+
+
+@server.custom_route("/api/v1/properties/media/{project_name_or_id:path}", methods=["GET"])
+async def api_property_media(request: Request) -> JSONResponse:
+    """REST endpoint: Get project images, walkthrough videos, drone surveys, and brochures."""
+    project_name_or_id = request.path_params.get("project_name_or_id", "")
+    result = get_project_multimedia(db=db, project_name_or_id=project_name_or_id)
+    return JSONResponse(result)
+
+
+@server.custom_route("/api/v1/properties/brochure/{project_name_or_id:path}", methods=["GET"])
+async def api_property_brochure(request: Request) -> JSONResponse:
+    """REST endpoint: Get official builder e-brochure and legal sanction documents."""
+    project_name_or_id = request.path_params.get("project_name_or_id", "")
+    result = get_project_official_brochure(db=db, project_name_or_id=project_name_or_id)
     return JSONResponse(result)
 
 
@@ -1761,6 +1819,10 @@ def get_app():
         allowed_origins=["*"]
     )
     asgi_app = server.sse_app(transport_security=security)
+    assets_dir = os.path.join(os.path.dirname(__file__), "assets")
+    if os.path.isdir(assets_dir):
+        from starlette.staticfiles import StaticFiles
+        asgi_app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
     asgi_app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

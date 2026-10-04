@@ -239,6 +239,58 @@ def get_openapi_spec(server_url: str = "https://api.fourcorner.in") -> Dict[str,
                         }
                     }
                 }
+            },
+            "/api/v1/properties/media/{project_name_or_id}": {
+                "get": {
+                    "operationId": "getProjectMedia",
+                    "summary": "Get project photos, 4K walkthrough videos, drone surveys, and e-brochures",
+                    "description": "Retrieve comprehensive visual intelligence and official documents for any verified project.",
+                    "parameters": [
+                        {
+                            "name": "project_name_or_id",
+                            "in": "path",
+                            "description": "Project name or ID (e.g. Aparna Sarovar Zenith)",
+                            "required": True,
+                            "schema": {"type": "string"}
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Media assets and presentation markdown",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/api/v1/properties/brochure/{project_name_or_id}": {
+                "get": {
+                    "operationId": "getProjectBrochure",
+                    "summary": "Download official builder e-brochure and TS-RERA certificate PDFs",
+                    "description": "Direct download links to official brochures, master layouts, and sanction certificates.",
+                    "parameters": [
+                        {
+                            "name": "project_name_or_id",
+                            "in": "path",
+                            "description": "Project name or ID (e.g. Candeur Lakescape)",
+                            "required": True,
+                            "schema": {"type": "string"}
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Document manifest and download links",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object"}
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

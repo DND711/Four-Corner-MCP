@@ -33,6 +33,10 @@ class FloorPlanDetails(BaseModel):
     rooms: List[RoomDimension]
     balconies: List[BalconyDetails]
     vastu_compliance_summary: Dict[str, str]
+    floor_plan_image_url: Optional[str] = Field(default=None, description="Architectural blueprint schematic image URL")
+    interactive_3d_tour_url: Optional[str] = Field(default=None, description="Interactive 3D model walkthrough video URL")
+    master_plan_url: Optional[str] = Field(default=None, description="Approved overall master layout plan URL")
+    brochure_pdf_url: Optional[str] = Field(default=None, description="Official builder e-brochure PDF URL")
 
 
 class PriceBreakdown(BaseModel):
@@ -82,6 +86,9 @@ class RERAVerification(BaseModel):
     escrow_account_compliant: bool
     litigations_reported: int
     quarterly_compliance_up_to_date: bool
+    rera_certificate_pdf_url: Optional[str] = Field(default=None, description="Direct download link to official TS-RERA certificate PDF")
+    sanctioned_master_plan_pdf_url: Optional[str] = Field(default=None, description="Sanctioned building layout and master plan PDF")
+    official_brochure_pdf_url: Optional[str] = Field(default=None, description="Verified builder sales brochure PDF")
 
 
 class UnitSearchResult(BaseModel):
@@ -98,3 +105,25 @@ class UnitSearchResult(BaseModel):
     total_price_cr: float
     handover_date: str
     rera_id: str
+    hero_image_url: Optional[str] = Field(default=None, description="High-resolution exterior elevation image")
+    floor_plan_image_url: Optional[str] = Field(default=None, description="Architectural 2D floor plan blueprint image")
+    walkthrough_video_url: Optional[str] = Field(default=None, description="Direct 4K virtual walkthrough video URL")
+    brochure_pdf_url: Optional[str] = Field(default=None, description="Official builder e-brochure PDF URL")
+
+
+class ProjectMedia(BaseModel):
+    project_id: str
+    project_name: str
+    developer: str
+    micro_market: str
+    rera_id: str
+    hero_image_url: str
+    gallery_images: List[str]
+    walkthrough_video_url: str
+    drone_footage_url: Optional[str] = None
+    construction_update_video_url: Optional[str] = None
+    brochure_pdf_url: str
+    rera_certificate_url: str
+    master_plan_url: str
+    cost_sheet_pdf_url: Optional[str] = None
+    site_progress_photos: List[str] = Field(default_factory=list)
