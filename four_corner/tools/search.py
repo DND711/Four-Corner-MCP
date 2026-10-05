@@ -69,6 +69,60 @@ def search_verified_properties(
             ).model_dump()
         )
 
+    # Generate Housing.com style mobile/desktop chat cards
+    card_snippets = []
+    housing_cards = []
+    for p in results[:6]:
+        bhk_val = p.get("bhk", 3)
+        bhk_str = f"{int(bhk_val) if bhk_val % 1 == 0 else bhk_val} BHK"
+        prop_type = "Villa" if "Villa" in p["project_name"] or bhk_val >= 5 else "Flat"
+        corner_str = " · Corner Unit" if p.get("is_corner_unit") else ""
+        facing_str = f" · {p['facing']} Facing" if p.get("facing") else ""
+        
+        card_text = (
+            f"![{p['project_name']} {bhk_str}]({p['hero_image_url']})\n"
+            f"### {bhk_str} {prop_type}\n"
+            f"**{p['project_name']}**\n"
+            f"Direct Developer Verified · TS-RERA `{p['rera_id']}`\n"
+            f"Built up area: {p['super_built_up_sqft']:,} sq.ft ({p['usable_efficiency_pct']}% Carpet: {p['carpet_area_sqft']:,} sq.ft{facing_str}{corner_str})\n"
+            f"📍 {p['micro_market']}, Hyderabad\n\n"
+            f"**₹{p['total_price_cr']} Cr**\n\n"
+            f"[View details & 4K Tour]({p['walkthrough_video_url']}) · [Floor Plan Blueprint]({p['floor_plan_image_url']})"
+        )
+        card_snippets.append(card_text)
+        housing_cards.append({
+            "title": f"{bhk_str} {prop_type}",
+            "project_name": p["project_name"],
+            "developer": p["developer"],
+            "badge": "Direct Developer Verified",
+            "rera_id": p["rera_id"],
+            "built_up_area_sqft": p["super_built_up_sqft"],
+            "carpet_area_sqft": p["carpet_area_sqft"],
+            "carpet_efficiency_pct": p["usable_efficiency_pct"],
+            "location": f"{p['micro_market']}, Hyderabad",
+            "price_formatted": f"₹{p['total_price_cr']} Cr",
+            "hero_image_url": p["hero_image_url"],
+            "walkthrough_video_url": p["walkthrough_video_url"],
+            "floor_plan_url": p["floor_plan_image_url"],
+            "brochure_pdf_url": p["brochure_pdf_url"],
+        })
+
+    chat_cards_markdown = "\n\n---\n\n".join(card_snippets)
+
+    table_carousel_markdown = ""
+    if len(results) >= 2:
+        p1 = results[0]
+        p2 = results[1]
+        bhk1 = f"{int(p1['bhk']) if p1['bhk'] % 1 == 0 else p1['bhk']} BHK"
+        bhk2 = f"{int(p2['bhk']) if p2['bhk'] % 1 == 0 else p2['bhk']} BHK"
+        t1 = "Villa" if p1["bhk"] >= 5 else "Flat"
+        t2 = "Villa" if p2["bhk"] >= 5 else "Flat"
+        table_carousel_markdown = (
+            f"| ![{p1['project_name']}]({p1['hero_image_url']}) | ![{p2['project_name']}]({p2['hero_image_url']}) |\n"
+            f"| :--- | :--- |\n"
+            f"| **{bhk1} {t1}**<br>**{p1['project_name']}**<br>Direct Developer Verified<br>Carpet: {p1['carpet_area_sqft']:,} sq.ft ({p1['usable_efficiency_pct']}%)<br>📍 {p1['micro_market']}, Hyderabad<br><br>**₹{p1['total_price_cr']} Cr**<br><br>[View details]({p1['walkthrough_video_url']}) | **{bhk2} {t2}**<br>**{p2['project_name']}**<br>Direct Developer Verified<br>Carpet: {p2['carpet_area_sqft']:,} sq.ft ({p2['usable_efficiency_pct']}%)<br>📍 {p2['micro_market']}, Hyderabad<br><br>**₹{p2['total_price_cr']} Cr**<br><br>[View details]({p2['walkthrough_video_url']}) |"
+        )
+
     filters_applied = {
         "micro_market": micro_market or "All West Hyderabad",
         "budget_range_cr": f"₹{min_budget_cr or 0} Cr - ₹{max_budget_cr or 'Unlimited'} Cr",
@@ -84,5 +138,8 @@ def search_verified_properties(
         "matched_count": len(results),
         "filters_applied": filters_applied,
         "properties": results,
+        "housing_cards": housing_cards,
+        "chat_cards_markdown": chat_cards_markdown,
+        "table_carousel_markdown": table_carousel_markdown,
         "guarantee": "All listings pulled directly from official builder ERP records · Zero broker markups",
     }
