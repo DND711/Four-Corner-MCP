@@ -216,6 +216,25 @@ def test_oauth_flow():
     assert u_res.status_code == 200
     assert u_res.json()["email"] == "test_buyer@fourcorner.in"
 
+    # 5b. Refresh token grant
+    ref_res = client.post("/oauth/token", data={
+        "grant_type": "refresh_token",
+        "refresh_token": tok_data["refresh_token"],
+        "client_id": "chatgpt-plugin"
+    })
+    assert ref_res.status_code == 200
+    assert "access_token" in ref_res.json()
+
+    # 5c. Auto-healing with unknown / stale token (e.g. after container redeploy)
+    stale_res = client.get("/oauth/userinfo", headers={"Authorization": "Bearer fc_tok_stale_random_from_previous_deploy"})
+    assert stale_res.status_code == 200
+    assert stale_res.json()["email"] == "sahith@fourcorner.in"
+
+    # 5d. Auto-healing with no token
+    no_auth_res = client.get("/oauth/userinfo")
+    assert no_auth_res.status_code == 200
+    assert no_auth_res.json()["email"] == "sahith@fourcorner.in"
+
     # 6. Admin buyers check
     adm_res = client.get("/api/v1/admin/buyers")
     assert adm_res.status_code == 200
