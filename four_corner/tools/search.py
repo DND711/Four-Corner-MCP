@@ -61,14 +61,12 @@ def search_verified_properties(
         g3 = gallery_imgs[2] if len(gallery_imgs) > 2 else hero_img
 
         single_card_md = (
+            f"![{r['project_name']} Architectural Elevation]({hero_img})\n\n"
             f"### {bhk_str} {prop_type} — {r['project_name']}\n"
-            f"**Direct Developer Verified** · **TS-RERA `{r['rera_id']}`** · 📍 {r['micro_market']}, Hyderabad\n\n"
-            f"| ![{r['project_name']} Facade]({g1}) | ![{r['project_name']} Interior]({g2}) | ![{r['project_name']} Sunlight]({g3}) |\n"
-            f"| :---: | :---: | :---: |\n"
-            f"| *Plate 01: Elevation* | *Plate 02: Living Area* | *Plate 03: Balcony Light* |\n\n"
+            f"**Developer:** {r['developer']} &nbsp;|&nbsp; **Direct Developer Verified** · **TS-RERA `{r['rera_id']}`** &nbsp;|&nbsp; 📍 {r['micro_market']}, Hyderabad\n\n"
             f"• **Built up area:** {r['super_built_up_sqft']:,} sq.ft\n"
             f"• **Actual Carpet Area:** {r['carpet_area_sqft']:,} sq.ft ({r['usable_efficiency_pct']}% usable efficiency{facing_str}{corner_str})\n"
-            f"• **Price:** **₹{r['total_price_cr']} Cr** (Zero Brokerage / Direct Builder)\n\n"
+            f"• **Direct Builder Price:** **₹{r['total_price_cr']} Cr** (Zero Brokerage / Direct Developer)\n\n"
             f"![{r['project_name']} Sanctioned Floor Plan Blueprint]({floor_plan_img})\n"
             f"*TS-RERA Sanctioned Architectural Floor Plan & Room Dimensions*\n\n"
             f"🎬 [Watch 4K Walkthrough Video Tour]({video_url}) &nbsp;|&nbsp; 📄 [Download Official Builder Brochure]({brochure_url})"
@@ -111,19 +109,14 @@ def search_verified_properties(
         corner_str = " · Corner Unit" if p.get("is_corner_unit") else ""
         facing_str = f" · {p['facing']} Facing" if p.get("facing") else ""
         p_gallery = p.get("gallery_images") or [p["hero_image_url"]]
-        g1 = p_gallery[0] if len(p_gallery) > 0 else p["hero_image_url"]
-        g2 = p_gallery[1] if len(p_gallery) > 1 else p["hero_image_url"]
-        g3 = p_gallery[2] if len(p_gallery) > 2 else p["hero_image_url"]
         
         card_text = (
+            f"![{p['project_name']} Architectural Elevation]({p['hero_image_url']})\n\n"
             f"### {bhk_str} {prop_type} — {p['project_name']}\n"
-            f"**Direct Developer Verified** · **TS-RERA `{p['rera_id']}`** · 📍 {p['micro_market']}, Hyderabad\n\n"
-            f"| ![{p['project_name']} Facade]({g1}) | ![{p['project_name']} Interior]({g2}) | ![{p['project_name']} Sunlight]({g3}) |\n"
-            f"| :---: | :---: | :---: |\n"
-            f"| *Plate 01: Elevation* | *Plate 02: Living Area* | *Plate 03: Balcony Light* |\n\n"
+            f"**Developer:** {p['developer']} &nbsp;|&nbsp; **Direct Developer Verified** · **TS-RERA `{p['rera_id']}`** &nbsp;|&nbsp; 📍 {p['micro_market']}, Hyderabad\n\n"
             f"• **Built up area:** {p['super_built_up_sqft']:,} sq.ft\n"
             f"• **Actual Carpet Area:** {p['carpet_area_sqft']:,} sq.ft ({p['usable_efficiency_pct']}% usable efficiency{facing_str}{corner_str})\n"
-            f"• **Price:** **₹{p['total_price_cr']} Cr** (Zero Brokerage / Direct Builder)\n\n"
+            f"• **Direct Builder Price:** **₹{p['total_price_cr']} Cr** (Zero Brokerage / Direct Developer)\n\n"
             f"![{p['project_name']} Sanctioned Floor Plan Blueprint]({p['floor_plan_image_url']})\n"
             f"*TS-RERA Sanctioned Architectural Floor Plan & Room Dimensions*\n\n"
             f"🎬 [Watch 4K Walkthrough Video Tour]({p['walkthrough_video_url']}) &nbsp;|&nbsp; 📄 [Download Official Builder Brochure]({p['brochure_pdf_url']})"
