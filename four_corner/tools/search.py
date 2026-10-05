@@ -163,6 +163,7 @@ def search_verified_properties(
         "properties": results,
         "housing_cards": housing_cards,
         "chat_cards_markdown": chat_cards_markdown,
+        "formatted_display_markdown": chat_cards_markdown,
         "table_carousel_markdown": table_carousel_markdown,
         "chat_presentation_instruction": (
             "CRITICAL: Embed property images directly using inline syntax `![Title](hero_image_url)`. "

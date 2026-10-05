@@ -677,6 +677,7 @@ async def api_search(request: Request) -> JSONResponse:
 
     qp = request.query_params
 
+    project_name   = qp.get("project_name")
     micro_market   = qp.get("micro_market")
     max_budget_cr  = float(qp["max_budget_cr"]) if "max_budget_cr" in qp else None
     min_budget_cr  = float(qp["min_budget_cr"]) if "min_budget_cr" in qp else None
@@ -697,6 +698,7 @@ async def api_search(request: Request) -> JSONResponse:
 
     result = search_verified_properties(
         db=db,
+        project_name=project_name,
         micro_market=micro_market,
         max_budget_cr=max_budget_cr,
         min_budget_cr=min_budget_cr,
@@ -707,6 +709,9 @@ async def api_search(request: Request) -> JSONResponse:
         ready_by_year=ready_by_year,
         min_carpet_sqft=min_carpet_sqft,
     )
+
+    if "chat_cards_markdown" in result and "formatted_display_markdown" not in result:
+        result["formatted_display_markdown"] = result["chat_cards_markdown"]
 
     # Record search telemetry and link to user account if authenticated
     record_search_event(
