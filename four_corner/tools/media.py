@@ -117,7 +117,7 @@ def build_interactive_media_tile_html(
   <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; background: #FFFFFF; border-bottom: 1px solid #F1F5F9;">
     <div style="display: inline-flex; align-items: center; gap: 8px;">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D001A" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-      <span style="font-size: 12px; font-weight: 700; letter-spacing: -0.01em; color: #0F172A;">Visual Media & Inspections</span>
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: -0.01em; color: #0F172A;">Media</span>
     </div>
     
     <!-- Enterprise Segmented Control Tab Bar -->
