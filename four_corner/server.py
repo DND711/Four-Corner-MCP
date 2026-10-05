@@ -411,6 +411,38 @@ def project_brochure_resource(project_id: str) -> str:
     return json.dumps(get_project_official_brochure(db=db, project_name_or_id=project_id), indent=2)
 
 
+@server.resource("ui://four-corner/property-card")
+def property_card_ui_resource() -> str:
+    """MCP Apps UI Standard: Interactive Housing.com-style property card/carousel."""
+    from four_corner.ui import get_property_card_html
+    return get_property_card_html()
+
+
+@server.resource("ui://four-corner/media-tile")
+def media_tile_ui_resource() -> str:
+    """MCP Apps UI Standard: Interactive media tile with photo gallery, 3D tour, and blueprints."""
+    # Returns default media tile HTML
+    media_res = get_project_multimedia(db=db, project_name_or_id="Sahith Home")
+    return media_res.get("media_tile_html", "<div>Media Tile</div>")
+
+
+@server.custom_route("/ui/property-card", methods=["GET"])
+async def serve_property_card_ui(request: Request):
+    """HTTP endpoint to serve the standalone property card component in an iframe."""
+    from starlette.responses import HTMLResponse
+    from four_corner.ui import get_property_card_html
+    return HTMLResponse(get_property_card_html())
+
+
+@server.custom_route("/ui/media-tile", methods=["GET"])
+async def serve_media_tile_ui(request: Request):
+    """HTTP endpoint to serve the interactive media tile in an iframe."""
+    from starlette.responses import HTMLResponse
+    project_name = request.query_params.get("project_name", "Sahith Home")
+    media_res = get_project_multimedia(db=db, project_name_or_id=project_name)
+    return HTMLResponse(media_res.get("media_tile_html", "<div>Media Tile</div>"))
+
+
 # ==========================================
 # OAuth 2.0 Server Endpoints (for ChatGPT & AI Authentication)
 # ==========================================

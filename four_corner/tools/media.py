@@ -550,6 +550,12 @@ def get_project_multimedia(db: Database, project_name_or_id: str) -> Dict[str, A
 
     return {
         "status": "success",
+        "_meta": {
+            "ui": {
+                "resourceUri": "ui://four-corner/media-tile"
+            },
+            "openai/outputTemplate": "ui://four-corner/media-tile"
+        },
         "project_name": p_name,
         "developer": developer,
         "micro_market": micro_market,

@@ -159,6 +159,12 @@ def search_verified_properties(
     return {
         "status": "success",
         "matched_count": len(results),
+        "_meta": {
+            "ui": {
+                "resourceUri": "ui://four-corner/property-card"
+            },
+            "openai/outputTemplate": "ui://four-corner/property-card"
+        },
         "filters_applied": filters_applied,
         "display_markdown": chat_cards_markdown,
         "formatted_display_markdown": chat_cards_markdown,

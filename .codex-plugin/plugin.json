@@ -1,0 +1,15 @@
+{
+  "name": "four-corner",
+  "version": "1.0.0",
+  "description": "Direct developer real estate discovery, transparent builder cost sheets, and TS-RERA verification for Hyderabad.",
+  "skills": "./skills/",
+  "apps": "./.app.json",
+  "interface": {
+    "displayName": "Four Corner",
+    "shortDescription": "Direct developer Hyderabad residential property discovery with zero broker fees.",
+    "developerName": "Four Corner",
+    "brandColor": "#6D001A",
+    "composerIcon": "./assets/luxury_tower.jpg",
+    "logo": "./assets/luxury_tower.jpg"
+  }
+}

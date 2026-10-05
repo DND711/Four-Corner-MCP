@@ -1,0 +1,49 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "four-corner",
+  "version": "1.0.0",
+  "description": "Direct developer real estate discovery, transparent builder cost sheets, and TS-RERA verification for Hyderabad.",
+  "author": {
+    "name": "Four Corner Real Estate Technologies",
+    "email": "developer@fourcorner.in",
+    "url": "https://four-corner-mcp.onrender.com"
+  },
+  "homepage": "https://four-corner-mcp.onrender.com",
+  "repository": "https://github.com/DND711/Four-Corner-MCP",
+  "license": "Proprietary",
+  "keywords": [
+    "real-estate",
+    "hyderabad",
+    "rera",
+    "direct-developer",
+    "apartments",
+    "villas",
+    "manikonda",
+    "kokapet",
+    "financial-district"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Four Corner",
+        "shortDescription": "Direct developer Hyderabad residential property discovery with zero broker fees.",
+        "longDescription": "Four Corner connects buyers directly to verified builder inventory across Hyderabad. Search by micro-market, budget, BHK, facing, and architectural features. View transparent builder pricing, RERA-sanctioned floor plans, 4K walkthroughs, and live commute metrics with zero broker markups.",
+        "developerName": "Four Corner",
+        "category": "Real Estate",
+        "capabilities": ["Read"],
+        "websiteURL": "https://four-corner-mcp.onrender.com",
+        "privacyPolicyURL": "https://four-corner-mcp.onrender.com/privacy",
+        "termsOfServiceURL": "https://four-corner-mcp.onrender.com/terms",
+        "defaultPrompt": [
+          "Show me Sahith Home in Manikonda",
+          "Search verified 3 BHK flats in Kokapet under 1.5 Cr",
+          "Show transparent builder cost sheet for unit AKR-T3-1202",
+          "Compare Kokapet and Tellapur 3 BHK units side-by-side"
+        ],
+        "brandColor": "#6D001A",
+        "composerIcon": "./assets/luxury_tower.jpg",
+        "logo": "./assets/luxury_tower.jpg"
+      }
+    }
+  }
+}
