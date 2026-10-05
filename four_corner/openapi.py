@@ -122,6 +122,7 @@ def get_openapi_spec(server_url: str = "https://api.fourcorner.in") -> Dict[str,
                                         "properties": {
                                             "status": {"type": "string"},
                                             "matched_count": {"type": "integer"},
+                                            "display_markdown": {"type": "string", "description": "The complete, pre-rendered Housing.com style visual card in Markdown with embedded hero photo ![Title](url), bold specs, bold price, and action buttons. The model MUST output this field verbatim to the user as its chat response instead of creating bullet points."},
                                             "formatted_display_markdown": {"type": "string", "description": "Housing.com style pre-rendered visual markdown card with embedded hero image, bold specs, and action buttons. Output this directly to chat."},
                                             "chat_cards_markdown": {"type": "string", "description": "Pre-rendered markdown card for chat rendering."},
                                             "properties": {"type": "array", "items": {"type": "object"}}

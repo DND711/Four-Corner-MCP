@@ -110,7 +110,7 @@ def search_verified_properties(
             f"Built up area: {p['super_built_up_sqft']:,} sq.ft ({p['usable_efficiency_pct']}% Carpet: {p['carpet_area_sqft']:,} sq.ft{facing_str}{corner_str})\n"
             f"📍 {p['micro_market']}, Hyderabad\n\n"
             f"**₹{p['total_price_cr']} Cr**\n\n"
-            f"[View details & 4K Tour]({p['walkthrough_video_url']}) · [Floor Plan Blueprint]({p['floor_plan_image_url']})"
+            f"[View details & 4K Tour]({p['walkthrough_video_url']}) · [Floor Plan Blueprint]({p['floor_plan_image_url']}) · [Official Brochure]({p['brochure_pdf_url']})"
         )
         card_snippets.append(card_text)
         housing_cards.append({
@@ -160,10 +160,11 @@ def search_verified_properties(
         "status": "success",
         "matched_count": len(results),
         "filters_applied": filters_applied,
+        "display_markdown": chat_cards_markdown,
+        "formatted_display_markdown": chat_cards_markdown,
+        "chat_cards_markdown": chat_cards_markdown,
         "properties": results,
         "housing_cards": housing_cards,
-        "chat_cards_markdown": chat_cards_markdown,
-        "formatted_display_markdown": chat_cards_markdown,
         "table_carousel_markdown": table_carousel_markdown,
         "chat_presentation_instruction": (
             "CRITICAL: Embed property images directly using inline syntax `![Title](hero_image_url)`. "
