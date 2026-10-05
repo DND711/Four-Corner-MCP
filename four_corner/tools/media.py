@@ -113,39 +113,28 @@ def build_interactive_media_tile_html(
 <!-- Four Corner Enterprise Visual Intelligence Tile -->
 <div class="fc-tile-wrapper" id="fc-tile-{clean_id}" style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 860px; margin: 20px auto; background: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04); color: #0F172A;">
   
-  <!-- Institutional Header Bar -->
-  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 24px; background: #FFFFFF; border-bottom: 1px solid #F1F5F9;">
-    <div>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748B;">{dev_escaped}</span>
-        <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; font-size: 11px; font-weight: 600;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
-          TS-RERA Certified
-        </span>
-      </div>
-      <h2 style="margin: 4px 0 2px 0; font-size: 20px; font-weight: 700; color: #0F172A; letter-spacing: -0.02em;">{p_name_escaped}</h2>
-      <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748B;">
-        <span>{market_escaped}, Hyderabad</span>
-        <span>•</span>
-        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 1px 6px; border-radius: 4px; color: #334155;">{rera_escaped}</span>
-      </div>
+  <!-- Media Navigation & Segmented Control Bar -->
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; background: #FFFFFF; border-bottom: 1px solid #F1F5F9;">
+    <div style="display: inline-flex; align-items: center; gap: 8px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6D001A" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span style="font-size: 12px; font-weight: 700; letter-spacing: -0.01em; color: #0F172A;">Visual Media & Inspections</span>
     </div>
     
     <!-- Enterprise Segmented Control Tab Bar -->
     <div style="display: inline-flex; gap: 2px; background: #F1F5F9; padding: 3px; border-radius: 10px; border: 1px solid #E2E8F0;">
-      <button type="button" onclick="fcSwitchTab_{clean_id}('photos')" id="fc-btn-photos-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 600; border-radius: 8px; border: 1px solid #CBD5E1; background: #ffffff; color: #6D001A; cursor: pointer; transition: all 0.15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+      <button type="button" onclick="fcSwitchTab_{clean_id}('photos')" id="fc-btn-photos-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 8px; border: 1px solid #CBD5E1; background: #ffffff; color: #6D001A; cursor: pointer; transition: all 0.15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         <span>Gallery ({len(slides)})</span>
       </button>
-      <button type="button" onclick="fcSwitchTab_{clean_id}('video')" id="fc-btn-video-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 500; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #64748B; cursor: pointer; transition: all 0.15s ease;">
+      <button type="button" onclick="fcSwitchTab_{clean_id}('video')" id="fc-btn-video-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 12px; font-weight: 500; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #64748B; cursor: pointer; transition: all 0.15s ease;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
         <span>Virtual Tour</span>
       </button>
-      <button type="button" onclick="fcSwitchTab_{clean_id}('plans')" id="fc-btn-plans-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 500; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #64748B; cursor: pointer; transition: all 0.15s ease;">
+      <button type="button" onclick="fcSwitchTab_{clean_id}('plans')" id="fc-btn-plans-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 12px; font-weight: 500; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #64748B; cursor: pointer; transition: all 0.15s ease;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
         <span>Master Layout</span>
       </button>
-      <button type="button" onclick="fcSwitchTab_{clean_id}('docs')" id="fc-btn-docs-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 500; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #64748B; cursor: pointer; transition: all 0.15s ease;">
+      <button type="button" onclick="fcSwitchTab_{clean_id}('docs')" id="fc-btn-docs-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 12px; font-weight: 500; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #64748B; cursor: pointer; transition: all 0.15s ease;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         <span>Documents</span>
       </button>
