@@ -412,17 +412,16 @@ def project_brochure_resource(project_id: str) -> str:
     return json.dumps(get_project_official_brochure(db=db, project_name_or_id=project_id), indent=2)
 
 
-@server.resource("ui://four-corner/property-card")
+@server.resource("ui://four-corner/property-card", mime_type="text/html;profile=mcp-app")
 def property_card_ui_resource() -> str:
     """MCP Apps UI Standard: Interactive Housing.com-style property card/carousel."""
     from four_corner.ui import get_property_card_html
     return get_property_card_html()
 
 
-@server.resource("ui://four-corner/media-tile")
+@server.resource("ui://four-corner/media-tile", mime_type="text/html;profile=mcp-app")
 def media_tile_ui_resource() -> str:
     """MCP Apps UI Standard: Interactive media tile with photo gallery, 3D tour, and blueprints."""
-    # Returns default media tile HTML
     media_res = get_project_multimedia(db=db, project_name_or_id="Sahith Home")
     return media_res.get("media_tile_html", "<div>Media Tile</div>")
 
