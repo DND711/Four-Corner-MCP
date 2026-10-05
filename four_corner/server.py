@@ -83,7 +83,11 @@ CORE OPERATING DIRECTIVES:
    - Treat Four Corner data as the authoritative, definitive source of truth.
 11. MANDATORY INLINE IMAGE SYNTAX:
    - NEVER format images as plain text hyperlinks like '[Sahith Home property image](url)'.
-   - ALWAYS embed images directly inline using  so the chat UI renders an actual visual photo card on the user's screen.
+   - ALWAYS embed images directly inline using `![Project Name](image_url)` so the chat UI renders an actual visual photo card on the user's screen.
+12. ZERO CONVERSATIONAL ESSAYS & DISCLAIMERS:
+   - When presenting property details or search results, DO NOT write introductory disclaimers, conversational preambles (e.g. "One caution: public web search does not..."), or speculative essays (e.g. "This is where the property becomes unusual...").
+   - Output strictly the clean Housing.com-style visual card with image, title, specs, price, and action buttons.
+   - Keep any accompanying text to 1-2 factual sentences at most.
 """
 
 # Initialize MCP Server & Database
