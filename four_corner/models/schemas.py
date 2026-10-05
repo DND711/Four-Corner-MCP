@@ -106,6 +106,7 @@ class UnitSearchResult(BaseModel):
     handover_date: str
     rera_id: str
     hero_image_url: Optional[str] = Field(default=None, description="High-resolution exterior elevation image")
+    gallery_images: List[str] = Field(default_factory=list, description="Authentic high-resolution project photography from Four Corner database")
     floor_plan_image_url: Optional[str] = Field(default=None, description="Architectural 2D floor plan blueprint image")
     walkthrough_video_url: Optional[str] = Field(default=None, description="Direct 4K virtual walkthrough video URL")
     brochure_pdf_url: Optional[str] = Field(default=None, description="Official builder e-brochure PDF URL")
