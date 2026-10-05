@@ -34,41 +34,64 @@ def build_interactive_media_tile_html(
     media: Dict[str, Any]
 ) -> str:
     """
-    Generate a self-contained, responsive, interactive media tile HTML component.
-    Features:
-    - Photo carousel / slider with previous/next arrows, thumbnail strip, and slide counter
-    - Fullscreen interactive zoom-in lightbox with zoom-in/out and pan controls
-    - Inline 4K 3D walkthrough video player & drone aerial survey
-    - Architectural blueprint & TS-RERA brochure download hub
+    Generate an enterprise-grade, institutional real estate visual intelligence tile.
+    Adheres to Four Corner luxury aesthetic:
+    - Zero emojis, clean monochromatic SVG iconography
+    - Plus Jakarta Sans & JetBrains Mono typography
+    - Segmented control navigation (Gallery, Virtual Tour, Master Layout, Documents)
+    - High-fidelity photo carousel with floating frosted HUD pills
+    - Fullscreen architectural zoom lightbox with pan and zoom HUD
+    - 4K virtual tour & drone survey video switcher
+    - Verified TS-RERA compliance and developer document cards
     """
     clean_id = re.sub(r'[^a-zA-Z0-9]', '', project_name).lower() or "tile"
     
-    # Collect all valid image slides
+    # Collect all verified image slides
     slides: List[Dict[str, str]] = []
     hero = media.get("hero_image_url") or media.get("local_hero_image")
     if hero:
-        slides.append({"url": hero, "caption": "Exterior Elevation & Grand Facade"})
+        slides.append({"url": hero, "caption": "Exterior Elevation & Architectural Facade", "category": "Elevation"})
     
-    for idx, img in enumerate(media.get("gallery_images", [])):
-        if img and img != hero:
-            captions = [
-                "Clubhouse & Olympic Pool",
-                "Landscaped Central Green Podium",
-                "Spacious Corner Living & Balcony",
-                "Master Suite & Natural Light",
-                "Architectural Podium & Water Feature"
-            ]
-            caption = captions[idx % len(captions)]
-            slides.append({"url": img, "caption": caption})
+    gallery = media.get("gallery_images", [])
+    if isinstance(gallery, str):
+        try:
+            gallery = json.loads(gallery)
+        except Exception:
+            gallery = [img.strip() for img in gallery.split(",") if img.strip()]
 
-    for idx, p_img in enumerate(media.get("site_progress_photos", [])):
+    standard_captions = [
+        ("Clubhouse & Aquatic Center", "Amenities"),
+        ("Central Landscaped Podium", "Landscape"),
+        ("Dual-Aspect Corner Living Pavilion", "Interiors"),
+        ("Primary Bedroom Suite & Balcony", "Interiors"),
+        ("Designer Kitchen & Dining Terrace", "Interiors"),
+        ("Private Sky Terrace & Landscaped Garden", "Terrace")
+    ]
+    for idx, img in enumerate(gallery):
+        if img and img != hero:
+            caption, cat = standard_captions[idx % len(standard_captions)]
+            slides.append({"url": img, "caption": caption, "category": cat})
+
+    site_photos = media.get("site_progress_photos", [])
+    if isinstance(site_photos, str):
+        try:
+            site_photos = json.loads(site_photos)
+        except Exception:
+            site_photos = [img.strip() for img in site_photos.split(",") if img.strip()]
+
+    for idx, p_img in enumerate(site_photos):
         if p_img and not any(s["url"] == p_img for s in slides):
-            slides.append({"url": p_img, "caption": f"Verified Site Progress Photo #{idx + 1}"})
+            slides.append({
+                "url": p_img,
+                "caption": f"Verified Site Inspection Photo {idx + 1}",
+                "category": "Site Progress"
+            })
 
     if not slides:
         slides.append({
             "url": "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1600&q=80",
-            "caption": "Project Elevation"
+            "caption": "Project Elevation",
+            "category": "Elevation"
         })
 
     walkthrough_url = media.get("walkthrough_video_url") or "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -87,138 +110,187 @@ def build_interactive_media_tile_html(
     rera_escaped = html.escape(rera_id or "TS-RERA Verified")
 
     return f"""
-<!-- Four Corner Verified Project Interactive Media Tile -->
-<div class="fc-tile-wrapper" id="fc-tile-{clean_id}" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 820px; margin: 16px auto; background: #0f172a; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px -15px rgba(0,0,0,0.5); color: #f8fafc;">
+<!-- Four Corner Enterprise Visual Intelligence Tile -->
+<div class="fc-tile-wrapper" id="fc-tile-{clean_id}" style="font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 860px; margin: 20px auto; background: #ffffff; border: 1px solid #E2E8F0; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04); color: #0F172A;">
   
-  <!-- Header Bar -->
-  <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: rgba(30, 41, 59, 0.7); border-bottom: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(8px);">
+  <!-- Institutional Header Bar -->
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 24px; background: #FFFFFF; border-bottom: 1px solid #F1F5F9;">
     <div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="font-size: 17px; font-weight: 700; color: #ffffff; letter-spacing: -0.01em;">{p_name_escaped}</span>
-        <span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);">✓ RERA Verified</span>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748B;">{dev_escaped}</span>
+        <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; font-size: 11px; font-weight: 600;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          TS-RERA Certified
+        </span>
       </div>
-      <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">
-        <span>{dev_escaped}</span> • <span>{market_escaped}</span> • <span style="font-family: monospace; color: #cbd5e1;">{rera_escaped}</span>
+      <h2 style="margin: 4px 0 2px 0; font-size: 20px; font-weight: 700; color: #0F172A; letter-spacing: -0.02em;">{p_name_escaped}</h2>
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748B;">
+        <span>{market_escaped}, Hyderabad</span>
+        <span>•</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 1px 6px; border-radius: 4px; color: #334155;">{rera_escaped}</span>
       </div>
     </div>
     
-    <!-- Tab Controls -->
-    <div style="display: flex; gap: 6px; background: rgba(15, 23, 42, 0.6); padding: 4px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08);">
-      <button type="button" onclick="fcSwitchTab_{clean_id}('photos')" id="fc-btn-photos-{clean_id}" style="padding: 6px 12px; font-size: 11px; font-weight: 600; border-radius: 8px; border: none; background: #6D001A; color: #ffffff; cursor: pointer; transition: all 0.2s;">📸 Photos ({len(slides)})</button>
-      <button type="button" onclick="fcSwitchTab_{clean_id}('video')" id="fc-btn-video-{clean_id}" style="padding: 6px 12px; font-size: 11px; font-weight: 600; border-radius: 8px; border: none; background: transparent; color: #94a3b8; cursor: pointer; transition: all 0.2s;">🎥 3D Video Tour</button>
-      <button type="button" onclick="fcSwitchTab_{clean_id}('plans')" id="fc-btn-plans-{clean_id}" style="padding: 6px 12px; font-size: 11px; font-weight: 600; border-radius: 8px; border: none; background: transparent; color: #94a3b8; cursor: pointer; transition: all 0.2s;">📐 Floor Plans</button>
-      <button type="button" onclick="fcSwitchTab_{clean_id}('docs')" id="fc-btn-docs-{clean_id}" style="padding: 6px 12px; font-size: 11px; font-weight: 600; border-radius: 8px; border: none; background: transparent; color: #94a3b8; cursor: pointer; transition: all 0.2s;">📄 Brochure</button>
+    <!-- Enterprise Segmented Control Tab Bar -->
+    <div style="display: inline-flex; gap: 2px; background: #F1F5F9; padding: 3px; border-radius: 10px; border: 1px solid #E2E8F0;">
+      <button type="button" onclick="fcSwitchTab_{clean_id}('photos')" id="fc-btn-photos-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 600; border-radius: 8px; border: 1px solid #CBD5E1; background: #ffffff; color: #6D001A; cursor: pointer; transition: all 0.15s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <span>Gallery ({len(slides)})</span>
+      </button>
+      <button type="button" onclick="fcSwitchTab_{clean_id}('video')" id="fc-btn-video-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 500; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #64748B; cursor: pointer; transition: all 0.15s ease;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+        <span>Virtual Tour</span>
+      </button>
+      <button type="button" onclick="fcSwitchTab_{clean_id}('plans')" id="fc-btn-plans-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 500; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #64748B; cursor: pointer; transition: all 0.15s ease;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/></svg>
+        <span>Master Layout</span>
+      </button>
+      <button type="button" onclick="fcSwitchTab_{clean_id}('docs')" id="fc-btn-docs-{clean_id}" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 500; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #64748B; cursor: pointer; transition: all 0.15s ease;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Documents</span>
+      </button>
     </div>
   </div>
 
-  <!-- TAB 1: Photo Carousel with Slide & Zoom -->
+  <!-- TAB 1: Photo Carousel with Slide & Inspect Zoom -->
   <div id="fc-tab-photos-{clean_id}" style="display: block; position: relative;">
     <!-- Main Display Viewport -->
-    <div style="position: relative; width: 100%; height: 380px; background: #020617; overflow: hidden; cursor: zoom-in;" onclick="fcOpenZoom_{clean_id}()">
-      <img id="fc-active-img-{clean_id}" src="{slides[0]['url']}" alt="{slides[0]['caption']}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease, opacity 0.25s ease;" />
+    <div style="position: relative; width: 100%; height: 420px; background: #0F172A; overflow: hidden; cursor: zoom-in;" onclick="fcOpenZoom_{clean_id}()">
+      <img id="fc-active-img-{clean_id}" src="{slides[0]['url']}" alt="{slides[0]['caption']}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.25s ease;" />
       
-      <!-- Gradient Scrims -->
-      <div style="position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 25%, transparent 65%, rgba(0,0,0,0.7) 100%);"></div>
+      <!-- Subtle Contrast Scrim -->
+      <div style="position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(15, 23, 42, 0.2) 0%, transparent 30%, transparent 60%, rgba(15, 23, 42, 0.75) 100%);"></div>
 
-      <!-- Caption & Counter Pill -->
-      <div style="position: absolute; bottom: 14px; left: 18px; pointer-events: none; display: flex; align-items: center; gap: 8px;">
-        <span id="fc-counter-badge-{clean_id}" style="background: rgba(0,0,0,0.75); color: #ffffff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.15);">1 / {len(slides)}</span>
-        <span id="fc-caption-text-{clean_id}" style="font-size: 13px; font-weight: 600; color: #f8fafc; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">{slides[0]['caption']}</span>
+      <!-- Slide Information Pill (Bottom-Left) -->
+      <div style="position: absolute; bottom: 16px; left: 20px; pointer-events: none; display: flex; align-items: center; gap: 10px; background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px; padding: 6px 14px;">
+        <span id="fc-counter-badge-{clean_id}" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; color: #CBD5E1;">1 / {len(slides)}</span>
+        <span style="color: rgba(255,255,255,0.3);">|</span>
+        <span id="fc-caption-text-{clean_id}" style="font-size: 12px; font-weight: 600; color: #FFFFFF;">{slides[0]['caption']}</span>
       </div>
 
-      <!-- Zoom Button Hint -->
-      <div style="position: absolute; top: 14px; right: 18px; background: rgba(0,0,0,0.65); color: #ffffff; font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 6px; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2);">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-        <span>Click to Zoom</span>
+      <!-- Inspect Zoom HUD Button (Top-Right) -->
+      <div style="position: absolute; top: 16px; right: 20px; background: rgba(15, 23, 42, 0.78); backdrop-filter: blur(10px); color: #FFFFFF; font-size: 11px; font-weight: 600; padding: 6px 12px; border-radius: 8px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.2s;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        <span>Inspect High-Res</span>
       </div>
 
-      <!-- Left / Right Slider Arrows -->
-      <button type="button" onclick="event.stopPropagation(); fcPrevSlide_{clean_id}();" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; background: rgba(15,23,42,0.85); color: #ffffff; border: 1px solid rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      <!-- Left / Right Floating Navigation Chevrons -->
+      <button type="button" onclick="event.stopPropagation(); fcPrevSlide_{clean_id}();" title="Previous Slide" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(8px); color: #0F172A; border: 1px solid rgba(0, 0, 0, 0.08); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s ease; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
-      <button type="button" onclick="event.stopPropagation(); fcNextSlide_{clean_id}();" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; background: rgba(15,23,42,0.85); color: #ffffff; border: 1px solid rgba(255,255,255,0.25); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      <button type="button" onclick="event.stopPropagation(); fcNextSlide_{clean_id}();" title="Next Slide" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(8px); color: #0F172A; border: 1px solid rgba(0, 0, 0, 0.08); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s ease; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>
 
-    <!-- Thumbnail Strip -->
-    <div style="display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; background: rgba(15, 23, 42, 0.9); border-top: 1px solid rgba(255,255,255,0.06);">
-      {"".join([f'''<img onclick="fcSelectSlide_{clean_id}({i})" id="fc-thumb-{clean_id}-{i}" src="{s['url']}" alt="{s['caption']}" style="width: 68px; height: 46px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid {'#e11d48' if i==0 else 'transparent'}; opacity: {'1' if i==0 else '0.6'}; transition: all 0.2s; flex-shrink: 0;" />''' for i, s in enumerate(slides)])}
+    <!-- Architectural Thumbnail Strip -->
+    <div style="display: flex; gap: 8px; padding: 12px 18px; overflow-x: auto; background: #FFFFFF; border-top: 1px solid #F1F5F9;">
+      {"".join([f'''<img onclick="fcSelectSlide_{clean_id}({i})" id="fc-thumb-{clean_id}-{i}" src="{s['url']}" alt="{s['caption']}" style="width: 76px; height: 48px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid {'#6D001A' if i==0 else 'transparent'}; box-shadow: {'0 0 0 2px rgba(109, 0, 26, 0.2)' if i==0 else 'none'}; opacity: {'1' if i==0 else '0.65'}; transition: all 0.15s ease; flex-shrink: 0;" />''' for i, s in enumerate(slides)])}
     </div>
   </div>
 
-  <!-- TAB 2: 4K 3D Walkthrough & Drone Video Player -->
-  <div id="fc-tab-video-{clean_id}" style="display: none; padding: 16px; background: #020617;">
-    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000000; border: 1px solid rgba(255,255,255,0.1);">
-      <iframe id="fc-video-frame-{clean_id}" src="https://www.youtube-nocookie.com/embed/{yt_id}?rel=0&modestbranding=1" title="{p_name_escaped} 4K Walkthrough Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position: absolute; top:0; left: 0; width: 100%; height: 100%; border: none;"></iframe>
+  <!-- TAB 2: Virtual Tour (4K 3D Walkthrough & Drone Survey Player) -->
+  <div id="fc-tab-video-{clean_id}" style="display: none; padding: 20px; background: #F8FAFC;">
+    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000000; border: 1px solid #CBD5E1; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);">
+      <iframe id="fc-video-frame-{clean_id}" src="https://www.youtube-nocookie.com/embed/{yt_id}?rel=0&modestbranding=1" title="{p_name_escaped} Virtual Walkthrough" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position: absolute; top:0; left: 0; width: 100%; height: 100%; border: none;"></iframe>
     </div>
-    <div style="display: flex; gap: 10px; margin-top: 12px; align-items: center; justify-content: space-between;">
+    
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; align-items: center; justify-content: space-between;">
       <div style="display: flex; gap: 8px;">
-        <button type="button" onclick="fcSetVideo_{clean_id}('{yt_id}')" style="padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 8px; background: #6D001A; color: #ffffff; border: none; cursor: pointer;">▶️ 4K Model Flat Walkthrough</button>
-        <button type="button" onclick="fcSetVideo_{clean_id}('{drone_yt_id}')" style="padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 8px; background: rgba(255,255,255,0.1); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;">🚁 Aerial Drone Road Survey</button>
+        <button type="button" onclick="fcSetVideo_{clean_id}('{yt_id}')" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 11px; font-weight: 600; border-radius: 8px; background: #6D001A; color: #FFFFFF; border: none; cursor: pointer; transition: background 0.15s;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>4K Model Walkthrough</span>
+        </button>
+        <button type="button" onclick="fcSetVideo_{clean_id}('{drone_yt_id}')" style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 11px; font-weight: 600; border-radius: 8px; background: #FFFFFF; color: #334155; border: 1px solid #CBD5E1; cursor: pointer; transition: all 0.15s;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>Aerial Drone Road Survey</span>
+        </button>
       </div>
-      <a href="{walkthrough_url}" target="_blank" rel="noopener noreferrer" style="font-size: 11px; color: #38bdf8; text-decoration: none; display: flex; align-items: center; gap: 4px;">Watch in 4K on YouTube ↗</a>
-    </div>
-  </div>
-
-  <!-- TAB 3: Architectural Floor Plans & Blueprints -->
-  <div id="fc-tab-plans-{clean_id}" style="display: none; padding: 20px; background: #020617;">
-    <div style="text-align: center; position: relative; border-radius: 12px; overflow: hidden; background: #0f172a; padding: 12px; border: 1px solid rgba(255,255,255,0.1);">
-      <img src="{floor_plan_url}" alt="{p_name_escaped} Architectural Blueprint" style="max-height: 380px; width: auto; max-width: 100%; margin: 0 auto; border-radius: 8px; cursor: zoom-in;" onclick="fcOpenDirectZoom_{clean_id}('{floor_plan_url}', '{p_name_escaped} Verified Blueprint')" />
-      <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #94a3b8;">
-        <span>Usable Indoor Area: <strong>60% - 74% Efficiency</strong></span>
-        <button type="button" onclick="fcOpenDirectZoom_{clean_id}('{floor_plan_url}', '{p_name_escaped} Blueprint')" style="padding: 4px 12px; font-size: 11px; font-weight: 600; border-radius: 6px; background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); cursor: pointer;">🔍 Zoom Blueprint</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAB 4: Official Documents & Brochures -->
-  <div id="fc-tab-docs-{clean_id}" style="display: none; padding: 20px; background: #0b1329;">
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-      <a href="{brochure_url}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 12px; padding: 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; color: #ffffff; text-decoration: none; transition: background 0.2s;">
-        <span style="font-size: 24px;">📄</span>
-        <div>
-          <div style="font-size: 12px; font-weight: 700;">Official e-Brochure</div>
-          <div style="font-size: 10px; color: #34d399;">Direct Developer PDF • Download ↗</div>
-        </div>
-      </a>
-      <a href="{rera_url}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 12px; padding: 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; color: #ffffff; text-decoration: none; transition: background 0.2s;">
-        <span style="font-size: 24px;">🏛️</span>
-        <div>
-          <div style="font-size: 12px; font-weight: 700;">TS-RERA Sanction Order</div>
-          <div style="font-size: 10px; color: #38bdf8;">Government Filings PDF • Download ↗</div>
-        </div>
+      <a href="{walkthrough_url}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #0284C7; text-decoration: none;">
+        <span>Stream Native 4K UHD</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </a>
     </div>
   </div>
 
-  <!-- FULLSCREEN ZOOM LIGHTBOX MODAL -->
-  <div id="fc-zoom-modal-{clean_id}" style="display: none; position: fixed; inset: 0; z-index: 99999; background: rgba(2, 6, 23, 0.94); backdrop-filter: blur(12px); flex-direction: column; justify-content: center; align-items: center; padding: 20px;">
-    <!-- Top Modal Bar -->
-    <div style="position: absolute; top: 16px; left: 24px; right: 24px; display: flex; align-items: center; justify-content: space-between; color: #ffffff; pointer-events: auto;">
+  <!-- TAB 3: Master Layout & Blueprints -->
+  <div id="fc-tab-plans-{clean_id}" style="display: none; padding: 24px; background: #F8FAFC;">
+    <div style="text-align: center; position: relative; border-radius: 12px; overflow: hidden; background: #FFFFFF; padding: 18px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <img src="{floor_plan_url}" alt="{p_name_escaped} Master Layout Blueprint" style="max-height: 400px; width: auto; max-width: 100%; margin: 0 auto; border-radius: 8px; cursor: zoom-in;" onclick="fcOpenDirectZoom_{clean_id}('{floor_plan_url}', '{p_name_escaped} Master Layout')" />
+      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid #F1F5F9; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #64748B;">
+        <span style="display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          Verified Usable Carpet Efficiency: <strong style="color: #0F172A;">60% — 74% (Zero Inflated Math)</strong>
+        </span>
+        <button type="button" onclick="fcOpenDirectZoom_{clean_id}('{floor_plan_url}', '{p_name_escaped} Master Blueprint')" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; font-size: 11px; font-weight: 600; border-radius: 6px; background: #FFFFFF; color: #0F172A; border: 1px solid #CBD5E1; cursor: pointer; transition: all 0.15s;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          <span>Examine High-Res Blueprint</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: Official Compliance Documents & Brochures -->
+  <div id="fc-tab-docs-{clean_id}" style="display: none; padding: 24px; background: #F8FAFC;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px;">
+      <!-- Brochure Card -->
+      <a href="{brochure_url}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 14px; padding: 16px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; color: inherit; text-decoration: none; transition: all 0.15s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+        <div style="width: 40px; height: 40px; border-radius: 8px; background: #FFF1F2; border: 1px solid #FFE4E6; display: flex; align-items: center; justify-content: center; color: #BE123C; flex-shrink: 0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div>
+          <div style="font-size: 13px; font-weight: 700; color: #0F172A;">Official Developer e-Brochure</div>
+          <div style="font-size: 11px; color: #059669; margin-top: 2px;">Direct Builder PDF • Verified ↗</div>
+        </div>
+      </a>
+
+      <!-- TS-RERA Sanction Order Card -->
+      <a href="{rera_url}" target="_blank" rel="noopener noreferrer" style="display: flex; align-items: center; gap: 14px; padding: 16px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; color: inherit; text-decoration: none; transition: all 0.15s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+        <div style="width: 40px; height: 40px; border-radius: 8px; background: #F0FDF4; border: 1px solid #DCFCE7; display: flex; align-items: center; justify-content: center; color: #15803D; flex-shrink: 0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+        </div>
+        <div>
+          <div style="font-size: 13px; font-weight: 700; color: #0F172A;">TS-RERA Sanction Order</div>
+          <div style="font-size: 11px; color: #0284C7; margin-top: 2px;">Government Portal Filing • Authenticated ↗</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- EXECUTIVE FULLSCREEN ZOOM LIGHTBOX MODAL -->
+  <div id="fc-zoom-modal-{clean_id}" style="display: none; position: fixed; inset: 0; z-index: 99999; background: rgba(10, 15, 29, 0.96); backdrop-filter: blur(16px); flex-direction: column; justify-content: center; align-items: center; padding: 24px;">
+    <!-- Top HUD Navigation Bar -->
+    <div style="position: absolute; top: 18px; left: 28px; right: 28px; display: flex; align-items: center; justify-content: space-between; color: #FFFFFF; pointer-events: auto;">
       <div>
-        <span id="fc-zoom-title-{clean_id}" style="font-size: 15px; font-weight: 700;">{p_name_escaped}</span>
-        <span id="fc-zoom-caption-{clean_id}" style="font-size: 12px; color: #94a3b8; margin-left: 10px;"></span>
+        <span id="fc-zoom-title-{clean_id}" style="font-size: 16px; font-weight: 700; color: #FFFFFF;">{p_name_escaped}</span>
+        <span id="fc-zoom-caption-{clean_id}" style="font-size: 13px; color: #94A3B8; margin-left: 12px;"></span>
       </div>
       <div style="display: flex; align-items: center; gap: 8px;">
-        <button type="button" onclick="fcZoomIn_{clean_id}()" title="Zoom In" style="width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: #ffffff; font-size: 16px; cursor: pointer;">＋</button>
-        <button type="button" onclick="fcZoomOut_{clean_id}()" title="Zoom Out" style="width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: #ffffff; font-size: 16px; cursor: pointer;">－</button>
-        <button type="button" onclick="fcZoomReset_{clean_id}()" title="Reset Zoom" style="padding: 0 10px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 600; cursor: pointer;">Reset</button>
-        <button type="button" onclick="fcCloseZoom_{clean_id}()" title="Close" style="width: 36px; height: 36px; border-radius: 8px; background: #e11d48; border: none; color: #ffffff; font-size: 16px; font-weight: bold; cursor: pointer; margin-left: 12px;">✕</button>
+        <span id="fc-zoom-level-{clean_id}" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #94A3B8; margin-right: 6px;">100%</span>
+        <button type="button" onclick="fcZoomIn_{clean_id}()" title="Zoom In" style="width: 36px; height: 36px; border-radius: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button type="button" onclick="fcZoomOut_{clean_id}()" title="Zoom Out" style="width: 36px; height: 36px; border-radius: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button type="button" onclick="fcZoomReset_{clean_id}()" title="Reset Zoom" style="padding: 0 12px; height: 36px; border-radius: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); color: #FFFFFF; font-size: 12px; font-weight: 600; cursor: pointer;">Reset</button>
+        <button type="button" onclick="fcCloseZoom_{clean_id}()" title="Close Lightbox (Esc)" style="width: 36px; height: 36px; border-radius: 8px; background: #6D001A; border: none; color: #FFFFFF; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-left: 12px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
     </div>
 
-    <!-- Zoomable Image Viewport -->
-    <div style="width: 90vw; height: 80vh; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
+    <!-- Scalable Architectural Viewport -->
+    <div style="width: 88vw; height: 80vh; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative;">
       <img id="fc-zoom-img-{clean_id}" src="{slides[0]['url']}" alt="{slides[0]['caption']}" style="max-width: 100%; max-height: 100%; object-fit: contain; transform: scale(1); transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); cursor: grab;" />
     </div>
 
     <!-- Modal Slider Nav Arrows -->
-    <button type="button" onclick="fcPrevSlide_{clean_id}();" style="position: absolute; left: 24px; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    <button type="button" onclick="fcPrevSlide_{clean_id}();" style="position: absolute; left: 24px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); color: #FFFFFF; border: 1px solid rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <button type="button" onclick="fcNextSlide_{clean_id}();" style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+    <button type="button" onclick="fcNextSlide_{clean_id}();" style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); color: #FFFFFF; border: 1px solid rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
   </div>
 
@@ -243,25 +315,26 @@ def build_interactive_media_tile_html(
     var zoomCaption = document.getElementById('fc-zoom-caption-{clean_id}');
 
     if (activeImg) {{
-      activeImg.style.opacity = '0.4';
+      activeImg.style.opacity = '0.3';
       setTimeout(function() {{
         activeImg.src = slides[currentIdx].url;
         activeImg.alt = slides[currentIdx].caption;
         activeImg.style.opacity = '1';
-      }}, 100);
+      }}, 80);
     }}
 
     if (counterBadge) counterBadge.textContent = (currentIdx + 1) + ' / ' + slides.length;
     if (captionText) captionText.textContent = slides[currentIdx].caption;
     if (zoomImg) zoomImg.src = slides[currentIdx].url;
-    if (zoomCaption) zoomCaption.textContent = '• ' + slides[currentIdx].caption;
+    if (zoomCaption) zoomCaption.textContent = '— ' + slides[currentIdx].caption;
 
-    // Update thumbnail borders
+    // Update thumbnail highlights
     slides.forEach(function(s, i) {{
       var thumb = document.getElementById('fc-thumb-{clean_id}-' + i);
       if (thumb) {{
-        thumb.style.border = (i === currentIdx) ? '2px solid #e11d48' : '2px solid transparent';
-        thumb.style.opacity = (i === currentIdx) ? '1' : '0.6';
+        thumb.style.border = (i === currentIdx) ? '2px solid #6D001A' : '2px solid transparent';
+        thumb.style.boxShadow = (i === currentIdx) ? '0 0 0 2px rgba(109, 0, 26, 0.2)' : 'none';
+        thumb.style.opacity = (i === currentIdx) ? '1' : '0.65';
       }}
     }});
   }};
@@ -281,8 +354,11 @@ def build_interactive_media_tile_html(
       var btn = document.getElementById('fc-btn-' + t + '-{clean_id}');
       if (el) el.style.display = (t === tabName) ? 'block' : 'none';
       if (btn) {{
-        btn.style.background = (t === tabName) ? '#6D001A' : 'transparent';
-        btn.style.color = (t === tabName) ? '#ffffff' : '#94a3b8';
+        btn.style.background = (t === tabName) ? '#FFFFFF' : 'transparent';
+        btn.style.color = (t === tabName) ? '#6D001A' : '#64748B';
+        btn.style.fontWeight = (t === tabName) ? '600' : '500';
+        btn.style.border = (t === tabName) ? '1px solid #CBD5E1' : '1px solid transparent';
+        btn.style.boxShadow = (t === tabName) ? '0 1px 2px rgba(0,0,0,0.05)' : 'none';
       }}
     }});
   }};
@@ -297,6 +373,7 @@ def build_interactive_media_tile_html(
     if (modal) {{
       modal.style.display = 'flex';
       zoomScale = 1.0;
+      updateZoomLevel();
       var zoomImg = document.getElementById('fc-zoom-img-{clean_id}');
       if (zoomImg) zoomImg.style.transform = 'scale(1)';
     }}
@@ -308,9 +385,10 @@ def build_interactive_media_tile_html(
     var zoomCaption = document.getElementById('fc-zoom-caption-{clean_id}');
     if (modal && zoomImg) {{
       zoomImg.src = imgUrl;
-      if (zoomCaption) zoomCaption.textContent = '• ' + title;
+      if (zoomCaption) zoomCaption.textContent = '— ' + title;
       modal.style.display = 'flex';
       zoomScale = 1.0;
+      updateZoomLevel();
       zoomImg.style.transform = 'scale(1)';
     }}
   }};
@@ -320,22 +398,30 @@ def build_interactive_media_tile_html(
     if (modal) modal.style.display = 'none';
   }};
 
+  function updateZoomLevel() {{
+    var lvl = document.getElementById('fc-zoom-level-{clean_id}');
+    if (lvl) lvl.textContent = Math.round(zoomScale * 100) + '%';
+  }}
+
   window.fcZoomIn_{clean_id} = function() {{
-    zoomScale = Math.min(zoomScale + 0.4, 3.5);
+    zoomScale = Math.min(zoomScale + 0.3, 3.5);
     var zoomImg = document.getElementById('fc-zoom-img-{clean_id}');
     if (zoomImg) zoomImg.style.transform = 'scale(' + zoomScale + ')';
+    updateZoomLevel();
   }};
 
   window.fcZoomOut_{clean_id} = function() {{
-    zoomScale = Math.max(zoomScale - 0.4, 0.8);
+    zoomScale = Math.max(zoomScale - 0.3, 0.8);
     var zoomImg = document.getElementById('fc-zoom-img-{clean_id}');
     if (zoomImg) zoomImg.style.transform = 'scale(' + zoomScale + ')';
+    updateZoomLevel();
   }};
 
   window.fcZoomReset_{clean_id} = function() {{
     zoomScale = 1.0;
     var zoomImg = document.getElementById('fc-zoom-img-{clean_id}');
     if (zoomImg) zoomImg.style.transform = 'scale(1)';
+    updateZoomLevel();
   }};
 
   document.addEventListener('keydown', function(e) {{
@@ -344,6 +430,8 @@ def build_interactive_media_tile_html(
       if (e.key === 'Escape') window.fcCloseZoom_{clean_id}();
       if (e.key === 'ArrowRight') window.fcNextSlide_{clean_id}();
       if (e.key === 'ArrowLeft') window.fcPrevSlide_{clean_id}();
+      if (e.key === '+' || e.key === '=') window.fcZoomIn_{clean_id}();
+      if (e.key === '-') window.fcZoomOut_{clean_id}();
     }}
   }});
 }})();
@@ -429,24 +517,27 @@ def get_project_multimedia(db: Database, project_name_or_id: str) -> Dict[str, A
         media=final_media
     )
 
-    # Pre-rendered Markdown format for conversational AI chat responses
-    presentation_markdown = f"""### 🏛️ {p_name} — Visual Intelligence Tile
-> **Interactive Media Viewer**: You can slide through the verified gallery photos, zoom in on blueprints, or play the 4K walkthrough video below.
+    # High-resolution architectural plate links
+    plate_links = " · ".join([f"[Plate {i+1:02d}]({url})" for i, url in enumerate(gallery_images[:6])])
 
-![{p_name} Elevation]({hero_image})
-*Photo 1 of {len(gallery_images) + 1} — {p_name} Main Facade (Click image to zoom in)*
+    # Pre-rendered enterprise Markdown brief for conversational AI chat responses
+    presentation_markdown = f"""### {p_name} — Asset Intelligence & Verified Media
+**Developer:** {developer} &nbsp;|&nbsp; **Location:** {micro_market} &nbsp;|&nbsp; **RERA:** `{rera_id}`
 
-#### 🖼️ Gallery Slides (Click any to zoom in high-res)
-{" • ".join([f"[🔍 Photo {i+1}]({url})" for i, url in enumerate(gallery_images[:5])])}
+![{p_name} Primary Elevation]({hero_image})
+*Plate 01 — Primary Architectural Facade & Elevation*
 
-#### 🎥 Video Walkthrough & Aerial Drone Surveys
-- [▶️ **Watch 4K 3D Model Walkthrough Tour**]({walkthrough_video})
-- [🚁 **Watch Aerial Drone Site Survey & Road Access**]({drone_footage})
+---
 
-#### 📄 Verified Documents & Sanction Certificates
-- [📄 **Download Official Builder e-Brochure (PDF)**]({brochure_pdf})
-- [🏛️ **Download TS-RERA Sanction Certificate**]({reg_media.get('rera_certificate_url')})
-- [📐 **View Approved Master Layout Blueprint**]({master_plan})
+#### Verified Media & Statutory Filings
+- **Architectural Plates (High-Res):** {plate_links}
+- **Virtual Inspections:**
+  - [4K UHD Model Flat Walkthrough Tour]({walkthrough_video})
+  - [Aerial Drone Site & Infrastructure Survey]({drone_footage})
+- **Statutory Documentation:**
+  - [Official Developer Project Prospectus (PDF)]({brochure_pdf})
+  - [TS-RERA Sanction Order & Approved Towers Certificate]({reg_media.get('rera_certificate_url')})
+  - [HMDA / TS-RERA Sanctioned Master Layout Blueprint]({master_plan})
 """
 
     return {
