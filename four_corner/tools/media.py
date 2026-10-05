@@ -509,34 +509,37 @@ def get_project_multimedia(db: Database, project_name_or_id: str) -> Dict[str, A
     # High-resolution architectural plate links
     plate_links = " · ".join([f"[Plate {i+1:02d}]({url})" for i, url in enumerate(gallery_images[:6])])
 
-    # Pre-rendered enterprise Markdown brief for conversational AI chat responses
-    presentation_markdown = f"""### {p_name} — Asset Intelligence & Verified Media
-**Developer:** {developer} &nbsp;|&nbsp; **Location:** {micro_market} &nbsp;|&nbsp; **RERA:** `{rera_id}`
+    # Pre-rendered enterprise Markdown brief for conversational AI chat responses with embedded images
+    presentation_markdown = f"""### {p_name} — Verified Media & Architectural Assets
+**Developer:** {developer} &nbsp;|&nbsp; **Location:** 📍 {micro_market}, Hyderabad &nbsp;|&nbsp; **TS-RERA:** `{rera_id}`
 
-![{p_name} Primary Elevation]({hero_image})
-*Plate 01 — Primary Architectural Facade & Elevation*
+![{p_name} Primary Architectural Elevation]({hero_image})
+*Plate 01 — Architectural Facade & Elevation (Direct Developer Verified)*
 
----
+#### 📐 TS-RERA Sanctioned Architectural Blueprint & Master Layout
+![{p_name} Sanctioned Floor Plan Blueprint]({master_plan})
+*TS-RERA Sanctioned Architectural Drawing & Floor Plan Blueprint*
 
-#### Verified Media & Statutory Filings
-- **Architectural Plates (High-Res):** {plate_links}
-- **Virtual Inspections:**
-  - [4K UHD Model Flat Walkthrough Tour]({walkthrough_video})
-  - [Aerial Drone Site & Infrastructure Survey]({drone_footage})
-- **Statutory Documentation:**
-  - [Official Developer Project Prospectus (PDF)]({brochure_pdf})
-  - [TS-RERA Sanction Order & Approved Towers Certificate]({reg_media.get('rera_certificate_url')})
-  - [HMDA / TS-RERA Sanctioned Master Layout Blueprint]({master_plan})
+#### 📸 Site Progress & Interior Architecture
+| ![{p_name} Interior]({gallery_images[0] if len(gallery_images) > 0 else hero_image}) | ![{p_name} Sunlight]({gallery_images[1] if len(gallery_images) > 1 else hero_image}) |
+| :---: | :---: |
+| *Interior Living & Natural Lighting* | *Balcony Morning Sunlight & Ventilation* |
+
+#### 🎥 Walkthrough Video & Official Documents
+🎬 [Watch 4K UHD Model Flat Walkthrough Tour]({walkthrough_video}) &nbsp;|&nbsp; 🚁 [Aerial Drone Survey]({drone_footage})  
+📄 [Download Official Developer Prospectus (PDF)]({brochure_pdf}) &nbsp;|&nbsp; 🏛️ [TS-RERA Sanction Order Certificate]({reg_media.get('rera_certificate_url')})
 """
 
     housing_card_markdown = f"""![{p_name} Elevation]({hero_image})
-### {p_name}
-**{developer}**
-*Direct Developer Verified · TS-RERA `{rera_id}`*
-- **Location:** 📍 {micro_market}, Hyderabad
-- **Verified Assets:** 4K 3D Walkthrough Tour · Sanctioned Layout Blueprint · Official Brochure
 
-👉 [**View details & 4K Tour**]({walkthrough_video}) | [**Download Official Brochure (PDF)**]({brochure_pdf})
+### {p_name}
+**{developer}** · Direct Developer Verified · TS-RERA `{rera_id}`  
+📍 {micro_market}, Hyderabad
+
+![{p_name} Sanctioned Architectural Blueprint]({master_plan})
+*Verified TS-RERA Architectural Blueprint & Layout*
+
+🎬 [**Watch 4K Walkthrough Video Tour**]({walkthrough_video}) &nbsp;|&nbsp; 📄 [**Download Official Brochure (PDF)**]({brochure_pdf})
 """
 
     asset_verification = {

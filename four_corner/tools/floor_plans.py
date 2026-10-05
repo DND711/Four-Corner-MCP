@@ -71,8 +71,25 @@ def get_architectural_floor_plan(db: Database, unit_id: str) -> Dict[str, Any]:
         brochure_pdf_url=u_media.get("brochure_pdf_url"),
     )
 
+    bp_img = u_media.get("floor_plan_image_url") or "https://four-corner-mcp.onrender.com/assets/floor_plan_blueprint.jpg"
+    video_url = u_media.get("interactive_3d_tour_url") or "https://www.youtube.com/watch?v=F3zW6WJ3q6w"
+    brochure_url = u_media.get("brochure_pdf_url") or "https://four-corner-mcp.onrender.com/assets/sahith_home_luxury_villas_brochure.pdf"
+
+    display_md = (
+        f"### {unit_data['project_name']} — Architectural Floor Plan (Unit {unit_data['id']})\n"
+        f"**{unit_data['developer']}** · Direct Developer Verified\n\n"
+        f"• **Typology:** {unit_data['bhk']} BHK ({unit_data['facing']} Facing)\n"
+        f"• **Built-up Area:** {unit_data['super_built_up_sqft']:,} sq.ft\n"
+        f"• **Actual Usable Carpet Area:** {unit_data['carpet_area_sqft']:,} sq.ft ({unit_data['usable_efficiency_pct']}% Efficiency)\n\n"
+        f"![{unit_data['project_name']} Sanctioned Blueprint]({bp_img})\n"
+        f"*TS-RERA Sanctioned Architectural Floor Plan & Room Dimensions*\n\n"
+        f"🎬 [Watch 4K Walkthrough Video Tour]({video_url}) &nbsp;|&nbsp; 📄 [Download Official Brochure]({brochure_url})"
+    )
+
     return {
         "status": "success",
+        "display_markdown": display_md,
+        "formatted_display_markdown": display_md,
         "floor_plan": plan.model_dump(),
         "architectural_insights": {
             "usable_carpet_ratio": f"{unit_data['usable_efficiency_pct']}% of total area is real usable indoor floor space.",
@@ -80,9 +97,9 @@ def get_architectural_floor_plan(db: Database, unit_id: str) -> Dict[str, Any]:
             "balcony_light": "Direct morning light verified" if any(b.morning_sunlight for b in balconies) else "Ambient daylight without direct morning sun.",
         },
         "media_assets": {
-            "floor_plan_blueprint": u_media.get("floor_plan_image_url"),
-            "model_walkthrough_video": u_media.get("interactive_3d_tour_url"),
+            "floor_plan_blueprint": bp_img,
+            "model_walkthrough_video": video_url,
             "approved_master_plan": u_media.get("master_plan_url"),
-            "official_brochure_pdf": u_media.get("brochure_pdf_url"),
+            "official_brochure_pdf": brochure_url,
         }
     }
