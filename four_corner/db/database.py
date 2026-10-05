@@ -653,6 +653,7 @@ class Database:
 
     def search_properties(
         self,
+        project_name: Optional[str] = None,
         micro_market: Optional[str] = None,
         max_budget_cr: Optional[float] = None,
         min_budget_cr: Optional[float] = None,
@@ -697,6 +698,10 @@ class Database:
         """
         params = []
 
+        if project_name:
+            clean_proj = project_name.strip()
+            query += " AND (LOWER(p.name) LIKE LOWER(?) OR LOWER(?) LIKE '%' || LOWER(p.name) || '%')"
+            params.extend([f"%{clean_proj}%", clean_proj])
         if micro_market:
             clean_market = micro_market.strip()
             query += " AND (LOWER(p.micro_market) LIKE LOWER(?) OR LOWER(?) LIKE '%' || LOWER(p.micro_market) || '%')"
