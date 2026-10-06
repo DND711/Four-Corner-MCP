@@ -521,9 +521,11 @@ def get_project_multimedia(db: Database, project_name_or_id: str) -> Dict[str, A
 *TS-RERA Sanctioned Architectural Drawing & Floor Plan Blueprint*
 
 #### 📸 Site Progress & Interior Architecture
-| ![{p_name} Interior]({gallery_images[0] if len(gallery_images) > 0 else hero_image}) | ![{p_name} Sunlight]({gallery_images[1] if len(gallery_images) > 1 else hero_image}) |
-| :---: | :---: |
-| *Interior Living & Natural Lighting* | *Balcony Morning Sunlight & Ventilation* |
+![{p_name} Interior Living Area]({gallery_images[0] if len(gallery_images) > 0 else hero_image})
+*Interior Living Space & Natural Daylight*
+
+![{p_name} Balcony Morning Sunlight]({gallery_images[1] if len(gallery_images) > 1 else hero_image})
+*Balcony Morning Sunlight & Ventilation*
 
 #### 🎥 Walkthrough Video & Official Documents
 🎬 [Watch 4K UHD Model Flat Walkthrough Tour]({walkthrough_video}) &nbsp;|&nbsp; 🚁 [Aerial Drone Survey]({drone_footage})  
