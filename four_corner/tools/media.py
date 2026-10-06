@@ -538,6 +538,12 @@ def get_project_multimedia(db: Database, project_name_or_id: str) -> Dict[str, A
 **{developer}** · Direct Developer Verified · TS-RERA `{rera_id}`  
 📍 {micro_market}, Hyderabad
 
+![{p_name} Interior Living Area]({gallery_images[1] if len(gallery_images) > 1 else hero_image})
+*Interior Living Space & Natural Daylight*
+
+![{p_name} Balcony Morning Sunlight]({gallery_images[2] if len(gallery_images) > 2 else hero_image})
+*Balcony Morning Sunlight & Ventilation*
+
 ![{p_name} Sanctioned Architectural Blueprint]({master_plan})
 *Verified TS-RERA Architectural Blueprint & Layout*
 
