@@ -198,7 +198,6 @@ def search_properties(
     ready_by_year: Optional[int] = None,
     min_carpet_sqft: Optional[int] = None,
     link_id: Optional[str] = None,
-    **kwargs: Any,
 ) -> Dict[str, Any]:
     """Search verified residential developer inventory in Hyderabad authenticated against official TS-RERA government records.
     Guarantees direct developer pricing, true architectural carpet areas, and zero broker markups.
