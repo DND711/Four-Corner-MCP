@@ -1227,6 +1227,10 @@ async def analytics_projects(request: Request) -> JSONResponse:
         c.execute("""
             SELECT 
                 p.id, p.name, p.developer, p.micro_market, p.rera_id,
+                COALESCE(p.project_status, 'APPROVED_PUBLIC') as project_status,
+                COALESCE(p.overall_risk_level, 'LOW') as overall_risk_level,
+                COALESCE(p.public_visibility, 1) as public_visibility,
+                p.next_review_at,
                 COALESCE(p.verification_status, 'Verified') as verification_status,
                 p.promoter_legal_entity, p.approved_towers, p.handover_year,
                 p.escrow_compliant, p.litigations_reported,
@@ -1592,7 +1596,29 @@ async def get_project_detail(request: Request) -> JSONResponse:
             ORDER BY se.timestamp DESC
             LIMIT 15
         """, (project["name"],))
-        project["buyers_seen"] = [dict(r) for r in c.fetchall()]
+        # Verification layer details
+        c.execute("SELECT * FROM project_land_parcels WHERE project_id = ?", (project_id,))
+        project["land_parcels"] = [dict(r) for r in c.fetchall()]
+
+        c.execute("""
+            SELECT category, field_name, status, risk_level, checked_at, reviewer_id, notes
+            FROM verification_records WHERE project_id = ?
+        """, (project_id,))
+        project["verification_records"] = [dict(r) for r in c.fetchall()]
+
+        c.execute("""
+            SELECT id, category, risk_type, severity, description, detected_at, resolved_at, resolved_by, resolution_notes
+            FROM risk_flags WHERE project_id = ?
+        """, (project_id,))
+        project["risk_flags"] = [dict(r) for r in c.fetchall()]
+
+        c.execute("""
+            SELECT last_checked_at, next_check_at, reason, priority
+            FROM reverification_schedule WHERE project_id = ?
+            ORDER BY next_check_at ASC LIMIT 1
+        """, (project_id,))
+        sched_row = c.fetchone()
+        project["reverification_schedule"] = dict(sched_row) if sched_row else None
 
     return JSONResponse({"status": "success", "project": project})
 
@@ -2369,9 +2395,17 @@ def get_app():
     )
     asgi_app = server.sse_app(transport_security=security)
     assets_dir = os.path.join(os.path.dirname(__file__), "assets")
+    from starlette.staticfiles import StaticFiles
     if os.path.isdir(assets_dir):
-        from starlette.staticfiles import StaticFiles
         asgi_app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    dashboard_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../four-corner-dashboard"))
+    if os.path.isdir(dashboard_dir):
+        asgi_app.mount("/dashboard", StaticFiles(directory=dashboard_dir, html=True), name="dashboard")
+
+    portal_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../four-corner"))
+    if os.path.isdir(portal_dir):
+        asgi_app.mount("/portal", StaticFiles(directory=portal_dir, html=True), name="portal")
     asgi_app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
