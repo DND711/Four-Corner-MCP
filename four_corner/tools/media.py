@@ -575,7 +575,13 @@ def get_project_multimedia(db: Database, project_name_or_id: str) -> Dict[str, A
         "media_tile_html": tile_html,
         "presentation_markdown": presentation_markdown,
         "housing_card_markdown": housing_card_markdown,
-        "asset_verification": asset_verification
+        "asset_verification": asset_verification,
+        "chat_presentation_instruction": (
+            "CRITICAL: Output `housing_card_markdown` VERBATIM. "
+            "You MUST render the embedded Markdown images `![Title](url)`. "
+            "DO NOT summarize the images as bullet points (do NOT say 'Four Corner also contains 6 images: • Elevation • Interior...'). "
+            "STRICT PROHIBITION: DO NOT use the search_image tool or web search. External web images are strictly prohibited."
+        )
     }
 
 
