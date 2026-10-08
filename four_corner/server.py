@@ -1,3 +1,4 @@
+import uuid
 import os
 import sys
 import json
@@ -1332,10 +1333,20 @@ async def analytics_search_intelligence(request: Request) -> JSONResponse:
                 s["buyer_tier"] = "UNAUTHENTICATED"
             recent_searches.append(s)
 
-        # Filter demand statistics
-        c.execute("SELECT count(*) FROM search_events")
-        r = c.fetchone()
-        total_searches = max(1, (r[0] if r else 0) or 0)
+        # Operational search event statistics
+        c.execute("""
+            SELECT 
+                COUNT(*) as total_count,
+                COUNT(DISTINCT CASE WHEN user_id IS NOT NULL AND trim(user_id) != '' THEN user_id END) as unique_users,
+                COALESCE(SUM(CASE WHEN results_count > 0 THEN 1 ELSE 0 END), 0) as matched_count,
+                COALESCE(SUM(CASE WHEN results_count = 0 OR results_count IS NULL THEN 1 ELSE 0 END), 0) as zero_result_count
+            FROM search_events
+        """)
+        stats_row = c.fetchone()
+        total_searches = (stats_row["total_count"] if stats_row and "total_count" in stats_row else (stats_row[0] if stats_row else 0)) or 0
+        unique_searchers = (stats_row["unique_users"] if stats_row and "unique_users" in stats_row else (stats_row[1] if stats_row else 0)) or 0
+        matched_searches = (stats_row["matched_count"] if stats_row and "matched_count" in stats_row else (stats_row[2] if stats_row else 0)) or 0
+        zero_result_searches = (stats_row["zero_result_count"] if stats_row and "zero_result_count" in stats_row else (stats_row[3] if stats_row else 0)) or 0
 
         c.execute("""
             SELECT 
@@ -1370,9 +1381,14 @@ async def analytics_search_intelligence(request: Request) -> JSONResponse:
     return JSONResponse({
         "status": "success",
         "total_searches": total_searches,
+        "unique_searchers": unique_searchers,
+        "matched_searches": matched_searches,
+        "zero_result_searches": zero_result_searches,
+        "match_rate_pct": round((matched_searches / max(1, total_searches)) * 100, 1),
+        "zero_result_pct": round((zero_result_searches / max(1, total_searches)) * 100, 1),
         "filter_metrics": {
-            "corner_preference_pct": round((corner_count / total_searches) * 100, 1),
-            "morning_sunlight_pct": round((morning_count / total_searches) * 100, 1),
+            "corner_preference_pct": round((corner_count / max(1, total_searches)) * 100, 1),
+            "morning_sunlight_pct": round((morning_count / max(1, total_searches)) * 100, 1),
             "facing_distribution": facing_dist,
             "bhk_distribution": bhk_dist,
         },
@@ -1775,7 +1791,7 @@ async def analytics_trends(request: Request) -> JSONResponse:
     """Day-by-day search count for the last N days (default 7). Used for the weekly trend chart."""
     try:
         days = int(request.query_params.get("days", 7))
-        days = max(1, min(days, 90))
+        days = max(1, min(days, 365))
     except (ValueError, TypeError):
         days = 7
 
