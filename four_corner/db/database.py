@@ -317,65 +317,104 @@ class Database:
                     self.seed_database(conn)
                 else:
                     # Ensure projects table has all extended columns
-                    cur.execute("""
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'Verified';
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS tagline TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS official_url TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_rera_registered INTEGER DEFAULT 1;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS total_units INTEGER;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS road_width_feet REAL;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS water_source TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS assigned_badge TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS auditor_id TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS latitude REAL;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS longitude REAL;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS construction_stage TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS road_condition TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS red_flag_notes TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS hero_image_url TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS gallery_images TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS walkthrough_video_url TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS drone_footage_url TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS brochure_pdf_url TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS master_plan_url TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS cost_sheet_pdf_url TEXT;
-                        ALTER TABLE projects ADD COLUMN IF NOT EXISTS site_progress_photos TEXT;
-                        ALTER TABLE units ADD COLUMN IF NOT EXISTS floor_plan_image_url TEXT;
-                        UPDATE projects SET verification_status = 'Verified' WHERE verification_status IS NULL;
-                    """)
+                    try:
+                        cur.execute("""
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'Verified';
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_status TEXT DEFAULT 'APPROVED_PUBLIC';
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS overall_risk_level TEXT DEFAULT 'LOW';
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS public_visibility INTEGER DEFAULT 1;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS next_review_at TIMESTAMP;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS promoter_id TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS district TEXT DEFAULT 'Hyderabad';
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS mandal TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS village TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS boundary_geometry TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS address TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS tagline TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_type TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS official_url TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_rera_registered INTEGER DEFAULT 1;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS total_units INTEGER;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS road_width_feet REAL;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS water_source TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS assigned_badge TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS auditor_id TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS latitude REAL;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS longitude REAL;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS construction_stage TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS road_condition TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS red_flag_notes TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS hero_image_url TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS gallery_images TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS walkthrough_video_url TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS drone_footage_url TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS brochure_pdf_url TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS master_plan_url TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS cost_sheet_pdf_url TEXT;
+                            ALTER TABLE projects ADD COLUMN IF NOT EXISTS site_progress_photos TEXT;
+                            ALTER TABLE units ADD COLUMN IF NOT EXISTS floor_plan_image_url TEXT;
+                        """)
+                        conn.commit()
+                        cur.execute("""
+                            UPDATE projects SET verification_status = 'Verified' WHERE verification_status IS NULL;
+                            UPDATE projects SET project_status = 'APPROVED_PUBLIC' WHERE project_status IS NULL;
+                            UPDATE projects SET overall_risk_level = 'LOW' WHERE overall_risk_level IS NULL;
+                            UPDATE projects SET public_visibility = 1 WHERE public_visibility IS NULL;
+                            UPDATE projects SET address = micro_market || ', Hyderabad' WHERE address IS NULL;
+                        """)
+                        conn.commit()
+                    except Exception as e:
+                        print(f"Notice during PostgreSQL projects migration: {e}")
+                        conn.rollback()
+
                     # Ensure B-RISE intent scoring columns exist
-                    cur.execute("""
-                        ALTER TABLE users ADD COLUMN IF NOT EXISTS intent_score INTEGER NOT NULL DEFAULT 0;
-                        ALTER TABLE users ADD COLUMN IF NOT EXISTS buyer_tier TEXT NOT NULL DEFAULT 'CASUAL_BROWSER';
-                        ALTER TABLE users ADD COLUMN IF NOT EXISTS intent_breakdown TEXT;
-                        ALTER TABLE users ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-                    """)
+                    try:
+                        cur.execute("""
+                            ALTER TABLE users ADD COLUMN IF NOT EXISTS intent_score INTEGER NOT NULL DEFAULT 0;
+                            ALTER TABLE users ADD COLUMN IF NOT EXISTS buyer_tier TEXT NOT NULL DEFAULT 'CASUAL_BROWSER';
+                            ALTER TABLE users ADD COLUMN IF NOT EXISTS intent_breakdown TEXT;
+                            ALTER TABLE users ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+                        """)
+                        conn.commit()
+                    except Exception as e:
+                        print(f"Notice during PostgreSQL users migration: {e}")
+                        conn.rollback()
+
                     # Ensure search_events table exists
-                    cur.execute("""
-                        CREATE TABLE IF NOT EXISTS search_events (
-                            id TEXT PRIMARY KEY,
-                            user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            micro_market TEXT,
-                            max_budget_cr REAL,
-                            min_budget_cr REAL,
-                            bhk REAL,
-                            facing TEXT,
-                            corner_only INTEGER DEFAULT 0,
-                            morning_sunlight_only INTEGER DEFAULT 0,
-                            ready_by_year INTEGER,
-                            min_carpet_sqft INTEGER,
-                            results_count INTEGER DEFAULT 0,
-                            unit_ids_returned TEXT DEFAULT '',
-                            project_names_returned TEXT DEFAULT ''
-                        );
-                        CREATE INDEX IF NOT EXISTS idx_search_events_user ON search_events(user_id);
-                        CREATE INDEX IF NOT EXISTS idx_search_events_time ON search_events(timestamp);
-                    """)
-                    conn.commit()
-                    self.seed_database(conn)
-                    self.seed_telemetry_and_buyers(conn)
+                    try:
+                        cur.execute("""
+                            CREATE TABLE IF NOT EXISTS search_events (
+                                id TEXT PRIMARY KEY,
+                                user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+                                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                micro_market TEXT,
+                                max_budget_cr REAL,
+                                min_budget_cr REAL,
+                                bhk REAL,
+                                facing TEXT,
+                                corner_only INTEGER DEFAULT 0,
+                                morning_sunlight_only INTEGER DEFAULT 0,
+                                ready_by_year INTEGER,
+                                min_carpet_sqft INTEGER,
+                                results_count INTEGER DEFAULT 0,
+                                unit_ids_returned TEXT DEFAULT '',
+                                project_names_returned TEXT DEFAULT ''
+                            );
+                            CREATE INDEX IF NOT EXISTS idx_search_events_user ON search_events(user_id);
+                            CREATE INDEX IF NOT EXISTS idx_search_events_time ON search_events(timestamp);
+                        """)
+                        conn.commit()
+                    except Exception as e:
+                        print(f"Notice during PostgreSQL search_events migration: {e}")
+                        conn.rollback()
+
+                    try:
+                        self.seed_database(conn)
+                        self.seed_telemetry_and_buyers(conn)
+                    except Exception as e:
+                        print(f"Notice during PostgreSQL seeding: {e}")
+                        conn.rollback()
         else:
             schema_file = DB_DIR / "schema.sql"
             with self.get_connection() as conn:

@@ -19,6 +19,17 @@ CREATE TABLE IF NOT EXISTS projects (
     clubhouse_sqft INTEGER,
     open_space_pct REAL,
     verification_status TEXT DEFAULT 'Verified',
+    project_status TEXT DEFAULT 'APPROVED_PUBLIC',
+    overall_risk_level TEXT DEFAULT 'LOW',
+    public_visibility INTEGER DEFAULT 1,
+    next_review_at TIMESTAMP,
+    promoter_id TEXT,
+    district TEXT DEFAULT 'Hyderabad',
+    mandal TEXT,
+    village TEXT,
+    boundary_geometry TEXT,
+    address TEXT,
+    updated_at TIMESTAMP,
     tagline TEXT,
     project_type TEXT,
     official_url TEXT,
@@ -32,7 +43,15 @@ CREATE TABLE IF NOT EXISTS projects (
     longitude REAL,
     construction_stage TEXT,
     road_condition TEXT,
-    red_flag_notes TEXT
+    red_flag_notes TEXT,
+    hero_image_url TEXT,
+    gallery_images TEXT,
+    walkthrough_video_url TEXT,
+    drone_footage_url TEXT,
+    brochure_pdf_url TEXT,
+    master_plan_url TEXT,
+    cost_sheet_pdf_url TEXT,
+    site_progress_photos TEXT
 );
 
 CREATE TABLE IF NOT EXISTS units (
@@ -56,7 +75,8 @@ CREATE TABLE IF NOT EXISTS units (
     car_parking_charges INTEGER NOT NULL DEFAULT 600000,
     infra_charges INTEGER NOT NULL DEFAULT 350000,
     total_out_the_door_inr BIGINT NOT NULL,
-    total_price_cr REAL NOT NULL
+    total_price_cr REAL NOT NULL,
+    floor_plan_image_url TEXT
 );
 
 CREATE TABLE IF NOT EXISTS unit_rooms (
@@ -102,6 +122,10 @@ CREATE TABLE IF NOT EXISTS users (
     micro_market_pref TEXT,
     budget_max_cr REAL,
     bhk_pref REAL,
+    intent_score INTEGER NOT NULL DEFAULT 0,
+    buyer_tier TEXT NOT NULL DEFAULT 'CASUAL_BROWSER',
+    intent_breakdown TEXT,
+    last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

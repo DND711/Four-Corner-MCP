@@ -274,4 +274,29 @@ def test_add_property_manual_entry():
     assert data["unit"]["total_price_cr"] > 1.0
 
 
+def test_analytics_projects_endpoint():
+    """Test GET /api/v1/analytics/projects endpoint returns 200 with complete metrics."""
+    from starlette.testclient import TestClient
+    from four_corner.server import app
+
+    client = TestClient(app)
+    res = client.get("/api/v1/analytics/projects")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "total" in data
+    assert "projects" in data
+    assert len(data["projects"]) > 0
+
+    first_proj = data["projects"][0]
+    assert "name" in first_proj
+    assert "verification_status" in first_proj
+    assert "project_status" in first_proj
+    assert "overall_risk_level" in first_proj
+    assert "unit_count" in first_proj
+    assert "search_impressions" in first_proj
+    assert "triggering_keywords" in first_proj
+    assert "triggering_searches" in first_proj
+
+
 
