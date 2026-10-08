@@ -40,7 +40,18 @@ CREATE TABLE IF NOT EXISTS projects (
     brochure_pdf_url TEXT,
     master_plan_url TEXT,
     cost_sheet_pdf_url TEXT,
-    site_progress_photos TEXT
+    site_progress_photos TEXT,
+    address TEXT,
+    promoter_id TEXT,
+    district TEXT DEFAULT 'Hyderabad',
+    mandal TEXT,
+    village TEXT,
+    boundary_geometry TEXT,
+    project_status TEXT NOT NULL DEFAULT 'APPROVED_PUBLIC',
+    overall_risk_level TEXT NOT NULL DEFAULT 'LOW',
+    public_visibility INTEGER NOT NULL DEFAULT 1,
+    next_review_at TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS units (
@@ -202,4 +213,169 @@ CREATE TABLE IF NOT EXISTS search_events (
 
 CREATE INDEX IF NOT EXISTS idx_search_events_user ON search_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_search_events_time ON search_events(timestamp);
+
+-- ============================================================================
+-- Enterprise Human-in-the-Loop Property Verification Entities
+-- ============================================================================
+
+-- 1. Project Land Parcels & Survey Numbers
+CREATE TABLE IF NOT EXISTS project_land_parcels (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    survey_number TEXT NOT NULL,
+    subdivision_number TEXT,
+    village TEXT NOT NULL,
+    mandal TEXT NOT NULL,
+    district TEXT NOT NULL,
+    land_extent_acres REAL,
+    geometry TEXT,
+    source_document_id TEXT,
+    geometry_confidence TEXT DEFAULT 'PROVISIONAL',
+    verified_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Verification Documents (Evidence Vault)
+CREATE TABLE IF NOT EXISTS verification_documents (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,
+    document_type TEXT NOT NULL,
+    file_url TEXT NOT NULL,
+    file_hash TEXT NOT NULL,
+    issuer TEXT,
+    document_date TEXT,
+    uploaded_by TEXT NOT NULL,
+    extracted_text TEXT,
+    extraction_confidence REAL DEFAULT 0.0,
+    review_status TEXT NOT NULL DEFAULT 'PENDING',
+    access_scope TEXT NOT NULL DEFAULT 'INTERNAL_ONLY',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Field-Level Verification Records
+CREATE TABLE IF NOT EXISTS verification_records (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    unit_id TEXT REFERENCES units(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,
+    field_name TEXT NOT NULL,
+    submitted_value TEXT NOT NULL,
+    verified_value TEXT,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    risk_level TEXT NOT NULL DEFAULT 'UNKNOWN',
+    source_type TEXT NOT NULL,
+    source_url TEXT,
+    source_document_id TEXT REFERENCES verification_documents(id),
+    source_date TEXT,
+    checked_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    reviewer_id TEXT,
+    reviewer_role TEXT,
+    confidence_score REAL DEFAULT 1.0,
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Risk Flags
+CREATE TABLE IF NOT EXISTS risk_flags (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,
+    risk_type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    description TEXT NOT NULL,
+    evidence_id TEXT REFERENCES verification_documents(id),
+    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP,
+    resolution_notes TEXT,
+    resolved_by TEXT
+);
+
+-- 5. Audit Tasks
+CREATE TABLE IF NOT EXISTS audit_tasks (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,
+    assigned_to TEXT,
+    assigned_role TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'TODO',
+    due_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    reviewer_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Verification Events (Immutable Audit Log)
+CREATE TABLE IF NOT EXISTS verification_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    actor_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    previous_status TEXT,
+    new_status TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    metadata TEXT
+);
+
+-- 7. Re-Verification Schedule
+CREATE TABLE IF NOT EXISTS reverification_schedule (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,
+    last_checked_at TIMESTAMP,
+    next_check_at TIMESTAMP NOT NULL,
+    reason TEXT NOT NULL,
+    priority TEXT NOT NULL DEFAULT 'NORMAL'
+);
+
+CREATE INDEX IF NOT EXISTS idx_parcels_project ON project_land_parcels(project_id);
+CREATE INDEX IF NOT EXISTS idx_vdocs_project ON verification_documents(project_id);
+CREATE INDEX IF NOT EXISTS idx_vrecords_project ON verification_records(project_id, category);
+CREATE INDEX IF NOT EXISTS idx_rflags_project ON risk_flags(project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_project ON audit_tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON audit_tasks(status, assigned_role);
+CREATE INDEX IF NOT EXISTS idx_vevents_project ON verification_events(project_id);
+CREATE INDEX IF NOT EXISTS idx_reverify_next ON reverification_schedule(next_check_at);
+
+-- 8. Restricted Public Database View
+CREATE VIEW IF NOT EXISTS public_project_views AS
+SELECT 
+    p.id AS project_id,
+    p.name AS project_name,
+    p.developer AS developer_name,
+    p.promoter_legal_entity,
+    p.rera_id,
+    p.micro_market,
+    p.address,
+    p.latitude,
+    p.longitude,
+    p.sanctioning_authority,
+    p.approved_towers,
+    p.registered_handover_date,
+    p.handover_year,
+    p.total_acres,
+    p.clubhouse_sqft,
+    p.open_space_pct,
+    p.hero_image_url,
+    p.gallery_images,
+    p.walkthrough_video_url,
+    p.brochure_pdf_url,
+    p.master_plan_url,
+    p.cost_sheet_pdf_url,
+    p.site_progress_photos,
+    p.overall_risk_level,
+    p.next_review_at,
+    p.project_status,
+    p.public_visibility
+FROM projects p
+WHERE p.project_status = 'APPROVED_PUBLIC'
+  AND p.public_visibility = 1
+  AND NOT EXISTS (
+      SELECT 1 FROM risk_flags rf 
+      WHERE rf.project_id = p.id 
+        AND rf.severity = 'BLOCKING_HIGH' 
+        AND rf.resolved_at IS NULL
+  );
+
 

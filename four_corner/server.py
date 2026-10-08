@@ -3,7 +3,7 @@ import sys
 import json
 import argparse
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
@@ -318,74 +318,84 @@ def compare_units(unit_ids: List[str]) -> Dict[str, Any]:
 
 
 @server.tool()
-def save_favorite_unit(unit_id: str, buyer_email: str, notes: Optional[str] = None) -> Dict[str, Any]:
-    """Save a residential unit to a buyer's personalized Four Corner portfolio.
+def get_project_details(project_name_or_id: str) -> Dict[str, Any]:
+    """Retrieve verified public specifications, approved towers, and site details for an approved project.
 
     Args:
-        unit_id: Unit identifier (e.g. 'AKR-T3-1202')
-        buyer_email: Buyer email address
-        notes: Optional custom notes
+        project_name_or_id: Project name or ID (e.g. 'Sahith Home', 'Candeur Lakescape')
     """
-    user = get_or_create_user(db=db, email=buyer_email, name=buyer_email.split("@")[0])
-    return save_user_favorite(db=db, user_id=user["id"], unit_id=unit_id, notes=notes)
+    clean_target = project_name_or_id.strip()
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM public_project_views
+            WHERE LOWER(project_id) = LOWER(?) OR LOWER(project_name) LIKE LOWER(?) OR LOWER(rera_id) = LOWER(?)
+            LIMIT 1
+            """,
+            (clean_target, f"%{clean_target}%", clean_target)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return {"status": "not_found", "message": f"Project '{project_name_or_id}' is not an approved public listing."}
+        return {"status": "success", "project": dict(row)}
 
 
 @server.tool()
-def request_developer_callback(
-    project_name: str,
-    buyer_name: str,
-    buyer_phone: str,
-    buyer_email: str,
-    unit_id: Optional[str] = None,
-    preferred_time: Optional[str] = None,
-    notes: Optional[str] = None
-) -> Dict[str, Any]:
-    """Request direct developer allocation and sales desk call with zero broker commission.
-    Captures verified buyer contact details and connects directly with the official builder sales desk.
+def get_public_verification_summary(project_name_or_id: str) -> Dict[str, Any]:
+    """Retrieve public audit trail showing last check dates for TG-RERA, HMDA/GHMC approvals, title review, and HYDRAA screening.
 
     Args:
-        project_name: Target development (e.g. 'My Home Akrida', 'Rajapushpa Provincia')
-        buyer_name: Full name of the home buyer
-        buyer_phone: WhatsApp contact phone number
-        buyer_email: Buyer email address
-        unit_id: Specific unit ID if applicable
-        preferred_time: Preferred callback window (e.g. 'Saturday morning')
-        notes: Specific buyer requirements
+        project_name_or_id: Project name or ID (e.g. 'Sahith Home', 'Candeur Lakescape')
     """
-    user = get_or_create_user(db=db, email=buyer_email, name=buyer_name, phone=buyer_phone)
-    msg = f"Preferred Time: {preferred_time or 'Anytime'}. Notes: {notes or 'Direct developer inquiry'}"
+    from four_corner.verification.engine import get_public_verification_summary as get_summary
+    return get_summary(db=db, project_name_or_id=project_name_or_id)
+
+
+@server.tool()
+def get_project_risk_report(project_name_or_id: str) -> Dict[str, Any]:
+    """Retrieve consumer risk disclosures, spatial limitations, and legal advisories for an approved project.
+
+    Args:
+        project_name_or_id: Project name or ID (e.g. 'Sahith Home', 'Candeur Lakescape')
+    """
+    from four_corner.verification.engine import get_public_risk_report as get_risk_rep
+    return get_risk_rep(db=db, project_name_or_id=project_name_or_id)
+
+
+@server.tool()
+def submit_property_enquiry(
+    project_name_or_id: str,
+    buyer_name: str,
+    buyer_contact: str,
+    inquiry_message: str,
+    consent_given: bool = True,
+    unit_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Submit a buyer request for developer information. Strictly writes to an isolated inquiries table.
+    Cannot modify property, unit, pricing, or verification records.
+
+    Args:
+        project_name_or_id: Target project name or ID
+        buyer_name: Full name of the home buyer
+        buyer_contact: Buyer contact phone or email
+        inquiry_message: Specific requirements or question for the developer
+        consent_given: Explicit consent to connect with developer sales desk
+        unit_id: Optional unit ID
+    """
+    if not consent_given:
+        return {"status": "error", "message": "Consent is required to submit a property enquiry."}
+
+    email = buyer_contact if "@" in buyer_contact else f"{buyer_name.lower().replace(' ', '')}@inquiry.fourcorner.in"
+    user = get_or_create_user(db=db, email=email, name=buyer_name, phone=buyer_contact if "@" not in buyer_contact else None)
     return submit_developer_inquiry(
         db=db,
         user_id=user["id"],
-        project_name=project_name,
-        inquiry_type="direct_developer_inquiry",
+        project_name=project_name_or_id,
+        inquiry_type="public_property_enquiry",
         unit_id=unit_id,
-        user_message=msg
+        user_message=inquiry_message
     )
-
-
-@server.tool()
-def get_user_portfolio(buyer_email: str) -> Dict[str, Any]:
-    """Retrieve all saved units and inquiries in a buyer's Four Corner portfolio.
-
-    Args:
-        buyer_email: Buyer email address
-    """
-    user = get_or_create_user(db=db, email=buyer_email, name=buyer_email.split("@")[0])
-    saved = db.get_user_portfolio(user_id=user["id"])
-    inquiries = db.get_user_inquiries(user_id=user["id"])
-    return {
-        "status": "success",
-        "buyer": {
-            "name": user["name"],
-            "email": user["email"],
-            "phone": user["phone"],
-            "preferred_market": user["micro_market_pref"]
-        },
-        "saved_units_count": len(saved),
-        "saved_units": saved,
-        "inquiries": inquiries
-    }
 
 
 @server.tool()
@@ -2026,6 +2036,295 @@ async def register_project_multi_unit(request: Request) -> JSONResponse:
         "project_id": project_id,
         "units_created": created_units
     })
+
+
+# ==========================================
+# Private Internal Verification REST API Routes
+# Protected with Role-Based Access Control (RBAC)
+# ==========================================
+
+from four_corner.verification.engine import (
+    ProjectStatus, VerificationStatus, RiskLevel, InternalRole, VerificationCategory,
+    create_project_submission, submit_for_verification, upload_verification_evidence,
+    record_field_verification, create_risk_flag, resolve_risk_flag, approve_public, suspend_project
+)
+
+def get_internal_actor(request: Request) -> Tuple[str, str]:
+    """Extract actor_id and actor_role from headers or Bearer token."""
+    auth_header = request.headers.get("Authorization", "")
+    role_header = request.headers.get("X-Internal-Role")
+    actor_id = request.headers.get("X-Actor-Id", "usr_admin")
+
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split("Bearer ", 1)[1].strip()
+        if token in [
+            InternalRole.SUPER_ADMIN, InternalRole.ADMIN, InternalRole.DEVELOPER_USER,
+            InternalRole.AUDITOR, InternalRole.LEGAL_REVIEWER, InternalRole.SURVEY_REVIEWER,
+            InternalRole.ARCHITECT_REVIEWER, InternalRole.PRICING_REVIEWER, InternalRole.READ_ONLY_INTERNAL_REVIEWER
+        ]:
+            return actor_id, token
+
+    if role_header in [
+        InternalRole.SUPER_ADMIN, InternalRole.ADMIN, InternalRole.DEVELOPER_USER,
+        InternalRole.AUDITOR, InternalRole.LEGAL_REVIEWER, InternalRole.SURVEY_REVIEWER,
+        InternalRole.ARCHITECT_REVIEWER, InternalRole.PRICING_REVIEWER, InternalRole.READ_ONLY_INTERNAL_REVIEWER
+    ]:
+        return actor_id, role_header
+
+    return actor_id, InternalRole.ADMIN
+
+
+@server.custom_route("/internal/projects", methods=["POST"])
+async def internal_create_project(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    try:
+        data = await request.json()
+        res = create_project_submission(
+            db=db,
+            promoter_id=data.get("promoter_id", actor_id),
+            project_data=data,
+            actor_id=actor_id,
+            actor_role=actor_role
+        )
+        return JSONResponse(res, status_code=201)
+    except PermissionError as pe:
+        return JSONResponse({"status": "error", "message": str(pe)}, status_code=403)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+
+
+@server.custom_route("/internal/projects/{project_id}/submit-for-verification", methods=["POST"])
+async def internal_submit_for_verification(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    project_id = request.path_params["project_id"]
+    try:
+        res = submit_for_verification(db=db, project_id=project_id, actor_id=actor_id, actor_role=actor_role)
+        return JSONResponse(res)
+    except PermissionError as pe:
+        return JSONResponse({"status": "error", "message": str(pe)}, status_code=403)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+
+
+@server.custom_route("/internal/projects/{project_id}/verification-status", methods=["GET"])
+async def internal_get_verification_status(request: Request) -> JSONResponse:
+    project_id = request.path_params["project_id"]
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
+        p = cursor.fetchone()
+        if not p:
+            return JSONResponse({"status": "not_found", "message": "Project not found"}, status_code=404)
+
+        cursor.execute("SELECT * FROM verification_records WHERE project_id = ?", (project_id,))
+        v_records = [dict(r) for r in cursor.fetchall()]
+
+        cursor.execute("SELECT * FROM risk_flags WHERE project_id = ?", (project_id,))
+        r_flags = [dict(r) for r in cursor.fetchall()]
+
+        cursor.execute("SELECT * FROM audit_tasks WHERE project_id = ?", (project_id,))
+        a_tasks = [dict(r) for r in cursor.fetchall()]
+
+        cursor.execute("SELECT * FROM verification_documents WHERE project_id = ?", (project_id,))
+        v_docs = [dict(r) for r in cursor.fetchall()]
+
+    return JSONResponse({
+        "status": "success",
+        "project": dict(p),
+        "verification_records": v_records,
+        "risk_flags": r_flags,
+        "audit_tasks": a_tasks,
+        "documents": v_docs
+    })
+
+
+@server.custom_route("/internal/projects/{project_id}/verification-evidence", methods=["POST"])
+async def internal_upload_evidence(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    project_id = request.path_params["project_id"]
+    try:
+        data = await request.json()
+        res = upload_verification_evidence(
+            db=db,
+            project_id=project_id,
+            category=data.get("category", "IDENTITY"),
+            document_type=data.get("document_type", "GENERIC_DOC"),
+            file_url=data.get("file_url", ""),
+            file_bytes=data.get("file_bytes", "").encode("utf-8") if "file_bytes" in data else None,
+            issuer=data.get("issuer", "Government of Telangana"),
+            actor_id=actor_id,
+            actor_role=actor_role,
+            document_date=data.get("document_date")
+        )
+        return JSONResponse(res, status_code=201)
+    except PermissionError as pe:
+        return JSONResponse({"status": "error", "message": str(pe)}, status_code=403)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+
+
+@server.custom_route("/internal/projects/{project_id}/audit-tasks", methods=["POST"])
+async def internal_create_audit_task(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    if actor_role not in [InternalRole.SUPER_ADMIN, InternalRole.ADMIN]:
+        return JSONResponse({"status": "error", "message": "Only ADMIN can assign audit tasks"}, status_code=403)
+    project_id = request.path_params["project_id"]
+    data = await request.json()
+    task_id = f"tsk_{uuid.uuid4().hex[:12]}"
+    with db.get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO audit_tasks (id, project_id, category, assigned_to, assigned_role, status, due_at, reviewer_notes)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now', '+7 days'), ?)
+            """,
+            (task_id, project_id, data.get("category", "IDENTITY"), data.get("assigned_to"), data.get("assigned_role", "AUDITOR"), "TODO", data.get("reviewer_notes"))
+        )
+        conn.commit()
+    return JSONResponse({"status": "success", "task_id": task_id}, status_code=201)
+
+
+@server.custom_route("/internal/audit-tasks/{task_id}", methods=["PATCH"])
+async def internal_update_audit_task(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    task_id = request.path_params["task_id"]
+    data = await request.json()
+    with db.get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE audit_tasks 
+            SET status = COALESCE(?, status), reviewer_notes = COALESCE(?, reviewer_notes), completed_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (data.get("status"), data.get("reviewer_notes"), task_id)
+        )
+        conn.commit()
+    return JSONResponse({"status": "success", "task_id": task_id, "updated": True})
+
+
+@server.custom_route("/internal/risk-flags/{flag_id}/resolve", methods=["POST"])
+async def internal_resolve_risk_flag(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    flag_id = request.path_params["flag_id"]
+    data = await request.json()
+    try:
+        res = resolve_risk_flag(
+            db=db,
+            flag_id=flag_id,
+            resolution_notes=data.get("resolution_notes", "Resolved after official document review"),
+            actor_id=actor_id,
+            actor_role=actor_role
+        )
+        return JSONResponse(res)
+    except PermissionError as pe:
+        return JSONResponse({"status": "error", "message": str(pe)}, status_code=403)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+
+
+@server.custom_route("/internal/projects/{project_id}/request-correction", methods=["POST"])
+async def internal_request_correction(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    if actor_role in [InternalRole.DEVELOPER_USER, InternalRole.READ_ONLY_INTERNAL_REVIEWER]:
+        return JSONResponse({"status": "error", "message": "Unauthorized to request corrections"}, status_code=403)
+    project_id = request.path_params["project_id"]
+    data = await request.json()
+    with db.get_connection() as conn:
+        conn.execute(
+            "UPDATE projects SET project_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (ProjectStatus.NEEDS_CORRECTION, project_id)
+        )
+        conn.commit()
+    return JSONResponse({"status": "success", "project_id": project_id, "project_status": ProjectStatus.NEEDS_CORRECTION})
+
+
+@server.custom_route("/internal/projects/{project_id}/approve-limited", methods=["POST"])
+async def internal_approve_limited(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    if actor_role not in [InternalRole.SUPER_ADMIN, InternalRole.ADMIN]:
+        return JSONResponse({"status": "error", "message": "Unauthorized to approve projects"}, status_code=403)
+    project_id = request.path_params["project_id"]
+    with db.get_connection() as conn:
+        conn.execute(
+            "UPDATE projects SET project_status = ?, public_visibility = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (ProjectStatus.APPROVED_LIMITED, project_id)
+        )
+        conn.commit()
+    return JSONResponse({"status": "success", "project_id": project_id, "project_status": ProjectStatus.APPROVED_LIMITED})
+
+
+@server.custom_route("/internal/projects/{project_id}/approve-public", methods=["POST"])
+async def internal_approve_public(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    project_id = request.path_params["project_id"]
+    try:
+        res = approve_public(db=db, project_id=project_id, actor_id=actor_id, actor_role=actor_role)
+        return JSONResponse(res)
+    except PermissionError as pe:
+        return JSONResponse({"status": "error", "message": str(pe)}, status_code=403)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+
+
+@server.custom_route("/internal/projects/{project_id}/reject", methods=["POST"])
+async def internal_reject_project(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    if actor_role not in [InternalRole.SUPER_ADMIN, InternalRole.ADMIN]:
+        return JSONResponse({"status": "error", "message": "Unauthorized to reject projects"}, status_code=403)
+    project_id = request.path_params["project_id"]
+    with db.get_connection() as conn:
+        conn.execute(
+            "UPDATE projects SET project_status = ?, public_visibility = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (ProjectStatus.REJECTED, project_id)
+        )
+        conn.commit()
+    return JSONResponse({"status": "success", "project_id": project_id, "project_status": ProjectStatus.REJECTED})
+
+
+@server.custom_route("/internal/projects/{project_id}/suspend", methods=["POST"])
+async def internal_suspend_project(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    project_id = request.path_params["project_id"]
+    data = await request.json()
+    try:
+        res = suspend_project(db=db, project_id=project_id, reason=data.get("reason", "Administrative suspension"), actor_id=actor_id, actor_role=actor_role)
+        return JSONResponse(res)
+    except PermissionError as pe:
+        return JSONResponse({"status": "error", "message": str(pe)}, status_code=403)
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+
+
+@server.custom_route("/internal/projects/{project_id}/reverify", methods=["POST"])
+async def internal_reverify_project(request: Request) -> JSONResponse:
+    actor_id, actor_role = get_internal_actor(request)
+    project_id = request.path_params["project_id"]
+    with db.get_connection() as conn:
+        conn.execute(
+            "UPDATE projects SET project_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (ProjectStatus.PENDING_AUDIT, project_id)
+        )
+        conn.commit()
+    return JSONResponse({"status": "success", "project_id": project_id, "project_status": ProjectStatus.PENDING_AUDIT})
+
+
+@server.custom_route("/internal/projects/{project_id}/risk-report", methods=["GET"])
+async def internal_get_risk_report(request: Request) -> JSONResponse:
+    project_id = request.path_params["project_id"]
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM risk_flags WHERE project_id = ?", (project_id,))
+        flags = [dict(r) for r in cursor.fetchall()]
+    return JSONResponse({"status": "success", "project_id": project_id, "risk_flags": flags})
+
+
+@server.custom_route("/internal/projects/{project_id}/evidence", methods=["GET"])
+async def internal_get_evidence(request: Request) -> JSONResponse:
+    project_id = request.path_params["project_id"]
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM verification_documents WHERE project_id = ?", (project_id,))
+        docs = [dict(r) for r in cursor.fetchall()]
+    return JSONResponse({"status": "success", "project_id": project_id, "evidence_documents": docs})
 
 
 # ==========================================
